@@ -8,7 +8,7 @@ services:
     name: library-app
     env: python
     plan: free
-    buildCommand: uv pip install -r requirements.txt && python manage.py migrate
+    buildCommand: pip install -r requirements.txt && python manage.py migrate
     startCommand: gunicorn library_app.wsgi
     envVars:
       - key: DATABASE_URL
