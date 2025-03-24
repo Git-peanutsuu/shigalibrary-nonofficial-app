@@ -1,0 +1,19 @@
+databases:
+  - name: library_db
+    databaseName: library_db
+    user: library_user
+
+services:
+  - type: web
+    name: library-app
+    env: python
+    plan: free
+    buildCommand: uv pip install -r requirements.txt && python manage.py migrate
+    startCommand: gunicorn library_app.wsgi
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: library_db
+          property: connectionString
+      - key: DEBUG
+        value: False
