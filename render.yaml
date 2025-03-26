@@ -16,4 +16,4 @@ services:
           name: library_db
           property: connectionString
       - key: DEBUG
-        value: False
+        value: True
