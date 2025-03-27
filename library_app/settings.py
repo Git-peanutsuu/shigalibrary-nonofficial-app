@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = 'django-insecure-fdp*ow$x@8qugf&-to&!=we!*ybn9pn22ke=gc9kxxgqz19aiy'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
@@ -79,7 +79,7 @@ WSGI_APPLICATION = 'library_app.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL', default='postgres://localhost')
+        default=config('DATABASE_URL', default='postgres://library_user@localhost:5432/library_db')
                          )
 }
 
