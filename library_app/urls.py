@@ -16,7 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-
+from books import views
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('login/', views.line_login, name='line_login'),
+    path('auth/', views.line_callback, name='line_callback'),
 ]

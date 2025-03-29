@@ -124,3 +124,26 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# LINE login
+LINE_CHANNEL_ID = config('LINE_CHANNEL_ID')
+LINE_CHANNEL_SECRET = config('LINE_CHANNEL_SECRET')
+LINE_REDIRECT_URI = config('LINE_REDIRECT_URI')
+
+
+# ロギング設定を追加
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'books': {  # あなたのアプリ名に合わせて変更
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}
