@@ -76,8 +76,8 @@ def line_callback(request):
         )
         # print(f"User saved: {user}, Created: {created}") ログ出力
         # ログイン処理（仮に名前表示）
-        return HttpResponse(f"ようこそ、{user.name}さん！")
-        # return redirect('home')
+        # return HttpResponse(f"ようこそ、{user.name}さん！")
+        return redirect('home')
     except Exception as e:
         return HttpResponse(f"エラー: {e}", status=400)
 def home(request):
