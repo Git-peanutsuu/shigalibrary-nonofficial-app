@@ -68,14 +68,17 @@ def line_callback(request):
     profile = requests.get(profile_url, headers=headers).json()
 
     # Model
-    print(f"Profile: {profile}")  # ターミナル確認
+    # print(f"Profile: {profile}")  ターミナル確認
     try:
         user, created = User.objects.get_or_create(
             line_id=profile['userId'],
             defaults={'name': profile['displayName']}
         )
-        print(f"User saved: {user}, Created: {created}")#ログ出力
+        # print(f"User saved: {user}, Created: {created}") ログ出力
         # ログイン処理（仮に名前表示）
         return HttpResponse(f"ようこそ、{user.name}さん！")
+        # return redirect('home')
     except Exception as e:
         return HttpResponse(f"エラー: {e}", status=400)
+def home(request):
+    return HttpResponse("ようこそ、これは「'非'公式滋賀県立図書館」アプリです。")
