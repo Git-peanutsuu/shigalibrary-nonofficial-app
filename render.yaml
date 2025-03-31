@@ -1,7 +1,7 @@
 databases:
-  - name: library_db
-    databaseName: library_db
-    user: library_user
+  - name: transaction_library_database
+    databaseName: transaction_library_database
+    user: transaction_library_database_user
 
 services:
   - type: web

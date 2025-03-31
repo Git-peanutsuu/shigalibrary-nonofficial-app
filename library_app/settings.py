@@ -79,9 +79,10 @@ WSGI_APPLICATION = 'library_app.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL', default='postgres://library_user@localhost:5432/library_db')
+        default=config('DATABASE_URL')
                          )
 }
+
 
 
 # Password validation
