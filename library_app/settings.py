@@ -148,3 +148,4 @@ LOGGING = {
         },
     },
 }
+AUTH_USER_MODEL = 'books.User'

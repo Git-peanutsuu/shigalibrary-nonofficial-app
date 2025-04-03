@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head><title>Library Home</title></head>
+<body>
+    <h1>滋賀県立図書館 お役立ち非公式アプリ</h1>
+        <p>ようこそ、{{ user.name }}さん！現在、ログイン中です</p>
+        <ul>
+        <h2>今借りている本</h2>
+        {% for book in books %}
+            <li>{{ book.title }} - {{ book.author }}</li>
+        {% empty %}
+            <li>借りている本はありません</li>
+        {% endfor %}
+        </ul>
+    <!-- 本の追加は後で検討 -->
+<a href="{% url 'book_list' %}">本の一覧を見る</a><br>
+<a href="{% url 'add_book' %}">本を追加する</a>
+</body>
+</html>

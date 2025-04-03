@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>Library Home</title></head>
+<body>
+    <h1>滋賀県立図書館 お役立ち非公式アプリ</h1>
+    <h2>ようこそ！！
+    {% if user.name %}
+            {{user.name}}
+        {% else %}
+            <h3><a href="{% url 'line_login'%}">ログインする</a></3>
+        {% endif %}
+    </h2>
+</body>
+</html>

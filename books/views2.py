@@ -1,22 +1,20 @@
 # Create your views here.
 import requests
-import logging
 from functools import wraps
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth import logout
-
-from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
-
 from django.http import HttpResponse
 from django.conf import settings
 # Djangoのプラクティスで、settings.pyをインポートする
 from .models import User
 from .models import UserBook
+import logging
 
 # ロガーの設定
 logger = logging.getLogger('books')
+
+def index(request):
+    return render(request, 'books/index.html')
 
 def line_login(request):
         # デバッグ情報を追加
@@ -32,11 +30,10 @@ def line_login(request):
     
     return redirect(auth_url)
 
-@login_required(login_url='line_login')
-def logout_view(request):
+def logout(request):
     # セッションをリセット（削除）
-    logout(request)
-    return redirect('home')
+    request.session.flush()  # セッションを完全にリセット
+    return redirect('line_login')  # ログインページにリダイレクト
 
 def line_callback(request):
     # LINE認証コールバック ライン側でcodeを取得をしている
@@ -86,55 +83,46 @@ def line_callback(request):
             line_id=profile['userId'],
             defaults={'name': profile['displayName']}
         )
-        print(f"User saved: {user}, Created: {created}")
-
-        if created:
-            user.set_unusable_password()  # パスワード不要に
-            user.save()
+        # print(f"User saved: {user}, Created: {created}") ログ出力
         # ログイン処理（仮に名前表示）
         # return HttpResponse(f"ようこそ、{user.name}さん！")
-        from django.contrib.auth import login
-        login(request, user, backend='django.contrib.auth.backends.ModelBackend')  # バックエンド指定
+        request.session['line_id'] = user.line_id  # Save LINE ID in session
         return redirect('home')
     except Exception as e:
         return HttpResponse(f"エラー: {e}", status=400)
 
-def home(request):
-    if request.user.is_authenticated:
-        # Fetch books associated with the logged-in user
-        print('LOG IN 200')
-        user_books = UserBook.objects.filter(user=request.user)
-        user = UserBook.objects.filter(user=request.user)
-        context = {
-            'message': "ログイン中です。",
-            'user': request.user,  # Userオブジェクト
-            'books': user_books,  # UserBookのリスト
-        }
-        return render(request, 'books/home.html', context)
-    else:
-        return render(request, 'books/index.html', {'message': "ログインしてください"})
+# 以降はlogin complete後のfunction
+def line_login_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(request, *args, **kwargs):
+        if 'line_id' not in request.session:
+            return redirect('line_login')
+        return view_func(request, *args, **kwargs)
+    return wrapped_view
 
-@login_required(login_url='line_login')
+@line_login_required
+def home(request):
+    print('LOG IN 200')
+    user = User.objects.get(line_id=request.session['line_id'])
+    return render(request, 'books/home.html', {'user': user})
+
+@line_login_required
 def book_list(request):
-    # user = User.objects.get(line_id=request.user.line_id)
-    books = UserBook.objects.filter(user=request.user)
-    # ERROR:might happen
-    print(books)
+    user = User.objects.get(line_id=request.session['line_id'])
+    books = UserBook.objects.filter(user=user)
     return render(request, 'books/book_list.html', {'books': books})
 
-@login_required(login_url='line_login')
+@line_login_required
 def add_book(request):
     if request.method == 'POST':
         title = request.POST['title']
         author = request.POST['author']
         isbn_id = request.POST.get('isbn_id', '')
         status = request.POST['status']
+        user = User.objects.get(line_id=request.session['line_id'])
         user_book = UserBook.objects.create(
-                user=request.user, 
-                title=title,
-                author=author,
-                isbn_id=isbn_id
-            )
+            user=user, title=title, author=author, isbn_id=isbn_id
+        )
         if status == 'want':
             user_book.is_want_to_read = True
         elif status == 'read':
@@ -145,24 +133,6 @@ def add_book(request):
         return redirect('book_list')
     return render(request, 'books/add_book.html')
 
-@login_required(login_url='line_login')
-def update_book_status(request, isbn_id):
-    #   CHECK:isbn_idでいいのか
-    if request.method == 'POST':
-        book = get_object_or_404(UserBook, id=isbn_id, user=request.user.line_id)
-        
-        # Update status based on form data
-        book.is_read = bool(request.POST.get('is_read', False))
-        book.is_reading = bool(request.POST.get('is_reading', False))
-        book.is_want_to_read = bool(request.POST.get('is_want_to_read', False))
-        
-        book.save()
-        return redirect('book_list')
-@login_required(login_url='line_login')
-def delete_book(request, isbn_id):
-    book = get_object_or_404(UserBook, id=isbn_id, user=request.user.line_id)
-    book.delete()
-    return redirect('book_list')
 # TODO:共有機能　API実装: Django REST Framework
 # from rest_framework.decorators import api_view
 # from rest_framework.response import Response

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head><title>Books</title></head>
+<body>
+<h1>本のリスト</h1>
+<ul>
+{% for book in books %}
+    <li>{{ book.title }} - {{ book.author }}
+        {% if book.is_want_to_read %}（読みたい）{% endif %}
+        {% if book.is_read %}（読んだ）{% endif %}
+        {% if book.is_reading %}（読んでいる）{% endif %}
+    </li>
+    {% empty %}
+    <li>まだ本は追加されていません！ </li>
+{% endfor %}
+</ul>
+<a href="{% url 'add_book' %}">本を追加する</a>
+
+<a href="{% url 'home' %}">Back to Home</a>
+
+</body>
+</html>
