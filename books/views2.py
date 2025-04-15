@@ -1,154 +1,370 @@
 # Create your views here.
 import requests
-from functools import wraps
+import logging
+# from functools import wraps
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
+
+from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
+
 from django.http import HttpResponse
 from django.conf import settings
 # Djangoのプラクティスで、settings.pyをインポートする
-from .models import User
-from .models import UserBook
-import logging
-
-# ロガーの設定
-logger = logging.getLogger('books')
-
-def index(request):
-    return render(request, 'books/index.html')
-
-def line_login(request):
-        # デバッグ情報を追加
-    logger.info("LINE認証URLにリダイレクト開始")
-    
-    # LINE認証URLにリダイレクト
-    auth_url = (
-        "https://access.line.me/oauth2/v2.1/authorize?"
-        f"response_type=code&client_id={settings.LINE_CHANNEL_ID}&"
-        f"redirect_uri={settings.LINE_REDIRECT_URI}&state=12345&scope=profile%20openid&ui_locales=ja"
-    )
-    # TODO:stateをランダムに生成
-    
-    return redirect(auth_url)
-
-def logout(request):
-    # セッションをリセット（削除）
-    request.session.flush()  # セッションを完全にリセット
-    return redirect('line_login')  # ログインページにリダイレクト
-
-def line_callback(request):
-    # LINE認証コールバック ライン側でcodeを取得をしている
-    code = request.GET.get('code')
-    if not code:
-        return HttpResponse("認証エラー: codeがありません", status=400)
-
-    # アクセストークン取得
-    token_url = "https://api.line.me/oauth2/v2.1/token"
-    data = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": settings.LINE_REDIRECT_URI,
-        "client_id": settings.LINE_CHANNEL_ID,
-        "client_secret": settings.LINE_CHANNEL_SECRET,
-    }
-    response = requests.post(token_url, data=data)
-        # レスポンスの詳細をログに出力
-    print(f"LINE APIレスポンス: {response.status_code}")
-    # print(f"レスポンス内容: {response.text}")
-    token_data = response.json()
-
-    if "access_token" not in token_data or "id_token" not in token_data:
-        return HttpResponse("トークン取得失敗", status=400)
-    
-
-    # IDトークン検証
-    verify_url = "https://api.line.me/oauth2/v2.1/verify"
-    verify_data = {
-        "id_token": token_data["id_token"],
-        "client_id": settings.LINE_CHANNEL_ID,
-    }
-    verify_response = requests.post(verify_url, data=verify_data)
-    if verify_response.status_code != 200:
-        return HttpResponse(f"IDトークン検証失敗: {verify_response.json()}", status=400)
-    
-    
-    # プロフィール取得
-    profile_url = "https://api.line.me/v2/profile"
-    headers = {"Authorization": f"Bearer {token_data['access_token']}"}
-    profile = requests.get(profile_url, headers=headers).json()
-
-    # Model
-    # print(f"Profile: {profile}")  ターミナル確認
-    try:
-        user, created = User.objects.get_or_create(
-            line_id=profile['userId'],
-            defaults={'name': profile['displayName']}
-        )
-        # print(f"User saved: {user}, Created: {created}") ログ出力
-        # ログイン処理（仮に名前表示）
-        # return HttpResponse(f"ようこそ、{user.name}さん！")
-        request.session['line_id'] = user.line_id  # Save LINE ID in session
-        return redirect('home')
-    except Exception as e:
-        return HttpResponse(f"エラー: {e}", status=400)
-
-# 以降はlogin complete後のfunction
-def line_login_required(view_func):
-    @wraps(view_func)
-    def wrapped_view(request, *args, **kwargs):
-        if 'line_id' not in request.session:
-            return redirect('line_login')
-        return view_func(request, *args, **kwargs)
-    return wrapped_view
-
-@line_login_required
-def home(request):
-    print('LOG IN 200')
-    user = User.objects.get(line_id=request.session['line_id'])
-    return render(request, 'books/home.html', {'user': user})
-
-@line_login_required
-def book_list(request):
-    user = User.objects.get(line_id=request.session['line_id'])
-    books = UserBook.objects.filter(user=user)
-    return render(request, 'books/book_list.html', {'books': books})
-
-@line_login_required
-def add_book(request):
-    if request.method == 'POST':
-        title = request.POST['title']
-        author = request.POST['author']
-        isbn_id = request.POST.get('isbn_id', '')
-        status = request.POST['status']
-        user = User.objects.get(line_id=request.session['line_id'])
-        user_book = UserBook.objects.create(
-            user=user, title=title, author=author, isbn_id=isbn_id
-        )
-        if status == 'want':
-            user_book.is_want_to_read = True
-        elif status == 'read':
-            user_book.is_read = True
-        elif status == 'reading':
-            user_book.is_reading = True
-        user_book.save()
-        return redirect('book_list')
-    return render(request, 'books/add_book.html')
-
-# TODO:共有機能　API実装: Django REST Framework
-# from rest_framework.decorators import api_view
-# from rest_framework.response import Response
+# from .models import User
 # from .models import UserBook
-# @api_view(['GET'])
-# def share_books(request):
-#     books = UserBook.objects.filter(user__line_id=request.session['line_id'])
-#     data = [{'title': b.title, 'author': b.author, 'isbn_id': b.isbn_id} for b in books]
-#     return Response(data)
 
-# 関数renderにおける辞書の意味はとは何？
-# path('', views.home, name='home'),のnameの意味は？
-# なぜ    if 'line_id' not in request.session:
-#         return redirect('line_login')
-#     user = User.objects.get(line_id=request.session['line_id'])
-#     books = Book.objects.all()でline_idを参照することができるのか？Pythonは関数ごとにスコープ範囲が決められていますよね？
-# TODO:本の表示だけはしたい。つまり、本の登録をすべてやるのではなく、本を検索したりして、登録する際に絶対に必要だと思う。
-# 問題はあります。違う観点で話すため一度置いておきます。
-# 借りるというのは私が想定しているのは、登録した本が他のユーザーによって借りられなくする図書館システムではありません。私の目的は「図書館の非公式サブアプリ」を作ることであり、借りている本や読みたい本を、検索または自動で画像検索、登録し、本の記録をすることです。そのため、借りるというのは「借りられている本を表示
+# システムIDをリストするAPIがあれば、以下のようにリクエストを送ります
+list_url = "https://api.calil.jp/librarysystemlist?appkey={settings.CALIL_APPLICATION_KEY}&systemid=Shiga_Pref&isbn=4798044857"
+response = requests.get(list_url)
+
+# レスポンスを解析
+library_systems = response.json()
+
+# 取得したシステムIDを表示
+print(library_systems)
+
+
+# def search_book(request):
+    # query = request.GET.get('query', '')
+    # if not query:
+    #     context = {
+    #         'error_message': '検索キーワードを入力してください。',
+    #     }
+    #     return render(request, 'books/search_book.html', context)
+    # try:
+    #     # 楽天ブックスAPIに変更
+    #     api_url = f"https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?applicationId={settings.RAKUTEN_APPLICATION_ID}&hits=15&title={query}"
+    #     response = requests.get(api_url)
+    #     response.raise_for_status()
+    #     books = response.json().get('Items', [])
+    #     print(books[5] if len(books) > 5 else books)  # デバッグ用
+    #     if not books:
+    #         context = {
+    #             'error_message': '検索結果が見つかりませんでした。',
+    #             'query': query,
+    #         }
+    #         return render(request, 'books/search_book.html', context)
+    #     context = {
+    #         'books': [
+    #             {
+    #                 'title': b['Item'].get('title', 'N/A'),
+    #                 'author': b['Item'].get('author', 'N/A'),
+    #                 'isbn': b['Item'].get('isbn', 'N/A'),  # 楽天はISBNを直接返す
+    #                 'image_link': b['Item'].get('largeImageUrl', '').replace('http://', 'https://'),
+    #             } for b in books
+    #         ],
+    #         'query': query,
+    #     }
+    #     return render(request, 'books/search_book.html', context)
+    # except requests.exceptions.RequestException as e:
+    #     context = {
+    #         'error_message': '楽天ブックスとの接続に問題が発生しました。再度お試しください。',
+    #         'query': query,
+    #     }
+    #     return render(request, 'books/search_book.html', context)
+    # except ValueError:
+    #     context = {
+    #         'error_message': '検索結果の取得に失敗しました。再度お試しください。',
+    #         'query': query,
+    #     }
+    #     return render(request, 'books/search_book.html', context)
+# 楽天＋図書館
+    # def search_book(request):
+    # query = request.GET.get('query', '')
+    
+    # # 検索キーワードがない場合
+    # if not query:
+    #     context = {
+    #         'error_message': '検索キーワードを入力してください。',
+    #     }
+    #     return render(request, 'books/search_book.html', context)
+    
+    # try:
+    #     # 楽天APIのURL作成
+    #     api_url = f"https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?applicationId={settings.RAKUTEN_APPLICATION_ID}&hits=15&title={query}"
+    #     response = requests.get(api_url)
+    #     response.raise_for_status()
+        
+    #     # 楽天APIレスポンスの取得
+    #     books = response.json().get('Items', [])
+    #     # print(books[0] if books else "No books found")  # デバッグ用
+        
+    #     # 検索結果がない場合
+    #     if not books:
+    #         context = {
+    #             'error_message': '検索結果が見つかりませんでした。',
+    #             'query': query,
+    #         }
+    #         return render(request, 'books/search_book.html', context)
+        
+    #     # 本の情報を整形
+    #     books_info = [
+    #         {
+    #             'title': b['Item'].get('title', 'N/A'),
+    #             'author': b['Item'].get('author', 'N/A'),
+    #             'isbn': b['Item'].get('isbn', 'N/A'),
+    #             'image_link': b['Item'].get('largeImageUrl', '').replace('http://', 'https://'),
+    #         } for b in books
+    #     ]
+        
+    #     # 各本のISBNを使って、Calil APIで蔵書確認を行う
+    #     for book in books_info:
+    #         isbn = book['isbn']
+    #         print(f"Processing book: {book}")
+            
+    #         if isbn != 'N/A':  # ISBNがある場合にのみ確認
+    #             # Calil APIのURLを作成
+    #             calil_api_url = f"https://api.calil.jp/check?appkey={settings.CALIL_APPLICATION_KEY}&systemid=Shiga_Pref&isbn={isbn}"
+                
+    #             try:
+    #                 # Calil APIにリクエスト
+    #                 calil_response = requests.get(calil_api_url)
+    #                 calil_response.raise_for_status()  # レスポンスのエラーがあれば例外を発生させる
+                    
+    #                 # Calil APIレスポンスのデータを確認
+    #                 print(f"Raw API Response: {calil_response.text}")  # 生のレスポンスを表示
+                    
+    #                 # レスポンスが空か確認
+    #                 if not calil_response.text:
+    #                     print(f"Error: No response received for ISBN {isbn}")
+    #                     book['availability'] = 'APIレスポンスなし'
+    #                     continue
+                    
+    #                 # Calil APIレスポンスをJSON形式で解析
+    #                 calil_data = calil_response.json()
+    #                 print(f"Calil API Response: {calil_data}")  # デバッグ用
+                    
+    #                 # hits が 1 以上なら蔵書あり
+    #                 if calil_data.get('hits', 0) > 0:
+    #                     # Shiga_Pref の情報を確認
+    #                     book_info = calil_data.get('books', {}).get(isbn, {}).get('Shiga_Pref', {})
+    #                     status = book_info.get('status', '')
+                        
+    #                     # "OK"なら正常、"Running"は処理中
+    #                     if status == 'OK':
+    #                         # libkey の情報を使って貸出状況を設定
+    #                         libkey = book_info.get('libkey', {})
+                            
+    #                         # 図書館ごとの貸出状況を確認
+    #                         availability = []
+    #                         for library, status in libkey.items():
+    #                             if status == "貸出可":
+    #                                 availability.append(f"{library} 貸出可")
+    #                             elif status == "貸出中":
+    #                                 availability.append(f"{library} 貸出中")
+    #                             elif status == "館内のみ":
+    #                                 availability.append(f"{library} 館内のみ")
+                            
+    #                         # availabilityがあれば設定
+    #                         if availability:
+    #                             book['availability'] = ', '.join(availability)
+    #                         else:
+    #                             book['availability'] = '蔵書なし'
+    #                     elif status == 'Running':
+    #                         book['availability'] = '処理中'  # 処理中の場合
+    #                     else:
+    #                         book['availability'] = '利用不可'  # 他の状態は利用不可
+    #                 else:
+    #                     book['availability'] = '利用不可'  # hitsが0なら利用不可
+    #             except requests.exceptions.RequestException as e:
+    #                 print(f"Error with API request for ISBN {isbn}: {e}")
+    #                 book['availability'] = 'API接続エラー'  # APIの接続エラーが発生した場合
+    #             except ValueError as e:
+    #                 print(f"Error processing response for ISBN {isbn}: {e}")
+    #                 book['availability'] = 'APIレスポンスエラー'  # レスポンスの形式に問題があった場合
+    #         else:
+    #             book['availability'] = 'ISBNなし'  # ISBNがない場合
+
+    #     print('after processing:', books_info)  # デバッグ用
+
+
+    #     # 検索結果と状態をcontextに設定
+    #     context = {
+    #         'books': books_info,
+    #         'query': query,
+    #     }
+
+    #     return render(request, 'books/search_book.html', context)
+
+    # except requests.exceptions.RequestException as e:
+    #     context = {
+    #         'error_message': '楽天ブックスとの接続に問題が発生しました。再度お試しください。',
+    #         'query': query,
+    #     }
+    #     return render(request, 'books/search_book.html', context)
+
+    # except ValueError:
+    #     context = {
+    #         'error_message': '検索結果の取得に失敗しました。再度お試しください。',
+    #         'query': query,
+    #     }
+    #     return render(request, 'books/search_book.html', context)
+
+
+# #
+def search_book_with_google(request):
+    # Example book title to search for
+    search_query = "Python"  # You can dynamically change this based on user input
+    google_book_api = f"https://www.googleapis.com/books/v1/volumes?q={search_query}"
+
+    try:
+        response = requests.get(google_book_api)
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Content (first 500 chars): {response.text[750:1500]}")
+        if response.status_code == 200:
+            books_data = response.json()
+
+            # Extract relevant book details from the API response
+            books_info = [
+                        {
+                            'title': item_info.get('title', 'N/A'),
+                            'authors': item_info.get('authors', ['N/A']),
+                            'publisher': item_info.get('publisher', 'N/A'),
+                            'published_date': item_info.get('publishedDate', 'N/A'),
+                            'description': item_info.get('description', 'No description available.'),
+                            'image_link': item_info.get('imageLinks', {}).get('thumbnail', ''),
+                        }
+                        for item in books_data.get('items', [])
+                        if (item_info := item.get('volumeInfo'))  # Using assignment expression (walrus operator)
+                    ]
+
+
+            return render(request, 'books/search_book_with_google.html', {'books_info': books_info})
+
+        else:
+            return render(request, 'books/search_book_with_google.html', {'error': f'API request failed with status {response.status_code}'})
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error during API request: {e}")
+        return render(request, 'books/search_book_with_google.html', {'error': 'API request error'})
+
+
+@login_required(login_url='line_login')
+# TODO:change func to add specific library list via CALIL to avoid too many Google API use.
+def demo_search_book(request):
+    # library_system_id = 'Shiga_Pref' 
+    # open_url = (
+    #     f"https://api.calil.jp/check?appkey={settings.CALIL_APPLICATION_KEY}&systemid={library_system_id}"
+    #     )
+    book_title = "疲労"
+    from urllib.parse import quote
+    encoded_title = quote(book_title) # URL-encode the book title
+    open_url = f"https://api.calil.jp/openurl?rft.btitle={encoded_title}"
+    open_url = 'https://api.calil.jp/openurl?rft.isbn=4103534222'
+# open_url = 'https://api.calil.jp/openurl?rft.isbn=4103534222'
+ 
+    try:
+        response = requests.get(open_url)
+        print(f"Status Code: {response.status_code}")
+        print(f"{response.headers['Content-type']}")
+        if response.status_code == 200:
+            if 'text/html' in response.headers['Content-Type']:
+                # soup = BeautifulSoup(response.text, 'html.parser')
+                # books_data  = soup.find_all('div', id='result')
+                print(f'Received HTML response instead of JSON.')
+                # return render(request, 
+                #                   'books/demo_search_book.html', 
+                #                   {'books': response.text}
+                #                   )
+                return HttpResponse(response.text)
+            else:
+                return render(request, 
+                                'books/demo_search_book.html', 
+                                {'books': response.text}
+                                )
+        else:
+            return render(request, 
+                          'books/demo_search_book.html', 
+                          {'error': f'API request failed with status {response.status_code}'}
+                          )
+    except requests.exceptions.RequestException as e:
+        # If there's an exception (e.g., network error), handle it here
+        print(f"Error during API request: {e}")
+        return render(request, 'books/demo_search_book.html', {'error': 'API request error'})
+
+
+# @login_required(login_url='/login/')
+# def scan_barcode(request):
+# エラー連発のためやめた
+# # かなり読み取りができず、
+#     if request.method == 'POST':
+#         isbn = request.POST.get('isbn')
+#         if not isbn or not isbn.isdigit() or len(isbn) != 13:
+#             return JsonResponse({"status": "error", "message": "バーコードが正しく読み取れませんでした。もう一度お試しください。"})
+
+#         # 楽天APIで検索
+#         url = "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
+#         params = {
+#             "applicationId": settings.RAKUTEN_APPLICATION_ID,
+#             "isbn": isbn,
+#             "format": "json"
+#         }
+#         try:
+#             response = requests.get(url, params=params, timeout=5)
+#             response.raise_for_status()  # 4xx, 5xxエラーで例外
+#             data = response.json()
+#         except RequestException as e:
+#             logger.error(f'楽天APIエラー: {str(e)}')
+#             return JsonResponse({"status": "error", "message": f"楽天APIへの接続に失敗しました: {str(e)}。ネットワークを確認してください。"})
+
+#         if not data.get("Items"):
+#             return JsonResponse({"status": "error", "message": "このISBNの本は見つかりませんでした。別の本を試してください。"})
+#         logger.info(f'楽天APIデータ取得：{data}')
+#         book = data["Items"][0]["Item"]
+
+#         # カーリルAPIで蔵書チェック
+#         calil_url = "http://api.calil.jp/check"
+#         calil_params = {
+#             "appkey": settings.CALIL_APPLICATION_KEY,
+#             "isbn": isbn,
+#             "systemid": "Shiga_Pref",
+#             "format": "json",
+#             "callback": ""
+#         }
+#         try:
+#             calil_response = requests.get(calil_url, params=calil_params, timeout=5)
+#             calil_response.raise_for_status()
+#             # レスポンス内容をログに出力
+#             logger.info(f'カーリルAPIレスポンス: {calil_response.text}')
+#             # レスポンスが空か確認
+#             if not calil_response.text.strip():
+#                 logger.info(f'カーリルAPIレスポンスのパースエラー: {str(json_err)}')                
+#                 raise ValueError("カーリルAPIから空のレスポンスが返されました")
+#             try:
+#                 calil_data = calil_response.json()
+#             except json.JSONDecodeError as json_err:
+#                 logger.error(f'カーリルAPIレスポンスのパースエラー: {str(json_err)}')
+#                 raise ValueError(f"カーリルAPIレスポンスが不正な形式です: {calil_response.text}")
+#         except RequestException as e:
+#             calil_data = {}  # カーリル失敗でも楽天の結果は使える
+#             logger.error(f'カーリルAPIエラー: {str(e)}')
+#             error_message = f"図書館情報の取得に失敗しました: {str(e)}"
+
+#         context = {
+#             "book": {
+#                 "title": book.get("title", "N/A"),
+#                 "author": book.get("author", "N/A"),
+#                 "isbn": isbn,
+#                 "image_link": book.get("largeImageUrl", "").replace("http://", "https://"),
+#                 "availability": calil_data.get("books", {}).get(isbn, {}).get("Shiga_Pref", {}),
+#                 "calil_link": f"https://calil.jp/book/{isbn}/search?nearby=滋賀県立図書館",
+#                 "is_added": UserBook.objects.filter(user=request.user, isbn_id=isbn).exists(),
+#                 "status": UserBook.objects.filter(user=request.user, isbn_id=isbn).first(),
+#             },
+#             "error_message": locals().get("error_message", "")
+#         }
+#         if "error_message" in locals():
+#             context["error_message"] = error_message
+#         return render(request, "books/scan_result.html", context)
+#     logger.info('NOT POST METHOD')
+#     return render(request, "books/scan_indexpage.html")
+#確認用
+# def example_url(request):#if you use it as test, access to example_url/
+#     library_system_id = 'Shiga_Pref' 
+#     open_url = (
+#         f"https://api.calil.jp/check?appkey={settings.CALIL_APPLICATION_KEY}&systemid={library_system_id}"
+#         )
+#     response = request.get(open_url)
+#     return render(request, 'books/example_url.html',request)

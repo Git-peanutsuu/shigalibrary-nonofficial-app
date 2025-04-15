@@ -11,3 +11,4 @@ wheels/
 README.md
 .env
 tutorial.txt
+books/views2.py

@@ -1,22 +1,171 @@
+
+{% load static %} 
 <!DOCTYPE html>
 <html>
-<head><title>Books</title></head>
+<head><title>Books</title>
+<!-- FontAwesome読み込み -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- カスタムCSS -->
+  <link rel="stylesheet" href="{% static './css/external_link_window.css' %}">
+</head>
+  
+</head>
 <body>
-<h1>本のリスト</h1>
+<h1 href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</h1>
+<h2>本のリスト</h2>
+<form method="get" action="{% url 'book_list' %}">
+    <label for="status">表示範囲:</label>
+    <select name="status" id="status" onchange="this.form.submit()">
+        <option value="all" {% if current_status == 'all' %}selected{% endif %}>すべて</option>
+        <option value="want" {% if current_status == 'want' %}selected{% endif %}>読みたい</option>
+        <option value="reading" {% if current_status == 'reading' %}selected{% endif %}>読んでいる</option>
+        <option value="read" {% if current_status == 'read' %}selected{% endif %}>読んだ</option>
+    </select>
+</form>
 <ul>
 {% for book in books %}
-    <li>{{ book.title }} - {{ book.author }}
-        {% if book.is_want_to_read %}（読みたい）{% endif %}
-        {% if book.is_read %}（読んだ）{% endif %}
-        {% if book.is_reading %}（読んでいる）{% endif %}
+    <li data-isbn="{{ book.isbn_id }}">
+        {{ book.title }} - {{ book.author }}
+        (ISBN:{{ book.isbn_id}})
+        <br>
+        <img src="{{ book.image_link }}" alt="{{ book.title }}" style="max-width: 100px;">
+        <br>
+        <span class="status-text" style="color: green;">
+            {% if book.is_read %}✓読んだ
+            {% elif book.is_reading %}✓読んでいる
+            {% elif book.is_want_to_read %}✓読みたい
+            {% else %}未設定{% endif %}
+        </span>
+        
+            <a href="{{ book.calil_link }}" 
+               target="_blank" 
+               rel="noopener noreferrer" 
+               class="external-link">
+               詳細
+               <i class="fas fa-external-link-alt"></i>
+            </a>
+        <form class="book-form" method="post" action="{% url 'update_book_status' book.isbn_id %}">
+            {% csrf_token %}
+            <label><input type="radio" name="status" value="want" {% if book.is_want_to_read %}checked{% endif %}>読みたい</label>
+            <label><input type="radio" name="status" value="reading" {% if book.is_reading %}checked{% endif %}>読んでいる</label>
+            <label><input type="radio" name="status" value="read" {% if book.is_read %}checked{% endif %}>読んだ</label>
+            <button type="submit" class="update-btn">変更</button>
+            <button type="button" class="delete-btn" data-isbn="{{ book.isbn_id }}">削除</button>
+        </form>
     </li>
-    {% empty %}
-    <li>まだ本は追加されていません！ </li>
 {% endfor %}
 </ul>
-<a href="{% url 'add_book' %}">本を追加する</a>
-
+<a href="{% url 'search_book' %}">本を検索・追加する</a>
 <a href="{% url 'home' %}">Back to Home</a>
 
+<script>
+    let deletedBooks = {};
+    
+    function updateStatusText(li, status) {
+        const statusText = li.querySelector('.status-text') || li.appendChild(document.createElement('span'));
+        statusText.className = 'status-text';
+        statusText.style.color = 'green';
+        statusText.textContent = status ? `${status === 'want' ? '読みたい' : status === 'reading' ? '読んでいる' : '読んだ'}` : '未設定';
+    }
+    
+    document.querySelectorAll('.book-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const li = this.closest('li');
+            const isbn = li.dataset.isbn;
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'updated') {
+                    updateStatusText(li, data.current_status);
+                }
+            })
+            .catch(error => console.error('更新エラー:', error));
+        });
+    });
+    
+    function attachDeleteEvent(btn) {
+        btn.addEventListener('click', function() {
+            const isbn = this.dataset.isbn;
+            const li = btn.closest('li');
+            const form = li.querySelector('form');
+            const bookData = {
+                title: li.textContent.split(' - ')[0].trim(),
+                author: li.textContent.split(' - ')[1].split(' [')[0].trim(),
+                status: form.querySelector('input[name=status]:checked')?.value || 'want'
+            };
+            fetch(`/delete/${isbn}/`, {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'deleted') {
+                    deletedBooks[isbn] = bookData;
+                    const statusText = li.querySelector('.status-text');
+                    statusText.style.color = 'red';
+                    statusText.textContent = '[削除済み]';
+                    btn.remove();
+                    form.innerHTML = `
+                        {% csrf_token %}
+                        <button type="button" class="undo-btn" data-isbn="${isbn}">削除を取り消す</button>
+                    `;
+                    attachUndoEvent(li.querySelector('.undo-btn'));
+                }
+            })
+            .catch(error => console.error('削除エラー:', error));
+        });
+    }
+    
+    function attachUndoEvent(btn) {
+        btn.addEventListener('click', function() {
+            const isbn = this.dataset.isbn;
+            const li = btn.closest('li');
+            const form = li.querySelector('form');
+            const undoData = deletedBooks[isbn];
+            if (!undoData) {
+                console.error('削除データが見つかりません:', isbn);
+                return;
+            }
+            const formData = new FormData();
+            formData.append('title', undoData.title);
+            formData.append('author', undoData.author);
+            formData.append('isbn_id', isbn);
+            formData.append('status', undoData.status);
+            fetch(`/add/`, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'added') {
+                    updateStatusText(li, undoData.status);
+                    form.action = `/update/${isbn}/`;
+                    form.innerHTML = `
+                        {% csrf_token %}
+                        <label><input type="radio" name="status" value="want" ${undoData.status === 'want' ? 'checked' : ''}>読みたい</label>
+                        <label><input type="radio" name="status" value="reading" ${undoData.status === 'reading' ? 'checked' : ''}>読んでいる</label>
+                        <label><input type="radio" name="status" value="read" ${undoData.status === 'read' ? 'checked' : ''}>読んだ</label>
+                        <button type="submit" class="update-btn">変更</button>
+                        <button type="button" class="delete-btn" data-isbn="${isbn}">削除</button>
+                    `;
+                    delete deletedBooks[isbn];
+                    attachDeleteEvent(li.querySelector('.delete-btn'));
+                } else {
+                    console.error('追加失敗:', data);
+                }
+            })
+            .catch(error => console.error('取り消しエラー:', error));
+        });
+    }
+    
+    document.querySelectorAll('.delete-btn').forEach(attachDeleteEvent);
+
+    </script>
 </body>
 </html>

@@ -1,0 +1,258 @@
+scanindexpage
+<!DOCTYPE html>
+<html>
+<head>
+    <title>バーコード読み取り</title>
+    <style>
+        #isbn-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        #isbn-popup input {
+            margin: 10px 0;
+            padding: 5px;
+            width: 200px;
+        }
+        #isbn-popup button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+        #barcode-scanner {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        #barcode-scanner video {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>バーコード読み取り</h1>
+    <p>バーコードを読み取るか、ISBNを入力してください。</p>
+    <p>バーコードは本の裏の上側にある、上の方のバーコードを読み取ってください</p>
+    <input type="text" id="isbn-input" placeholder="ISBNを入力 (例: 9784315523539)">
+    <button onclick="submitManualIsbn()">手動で送信</button>
+    <br>
+    <button onclick="readBarcode()">バーコード読み取り</button>
+    <div id="barcode-scanner"></div>
+
+    <div id="isbn-popup">
+        <h3>ISBN確認</h3>
+        <p>読み取ったISBN: <span id="scanned-isbn"></span></p>
+        <input type="text" id="isbn-edit" placeholder="修正する場合は入力">
+        <button onclick="confirmIsbn()">OK</button>
+        <button onclick="closePopup()">キャンセル</button>
+    </div>
+
+
+    <div id="isbn-popup">
+        <h3>ISBN確認</h3>
+        <p>読み取ったISBN: <span id="scanned-isbn"></span></p>
+        <input type="text" id="isbn-edit" placeholder="修正する場合は入力">
+        <button onclick="confirmIsbn()">OK</button>
+        <button onclick="closePopup()">キャンセル</button>
+    </div>
+
+    <script>
+    function readBarcode() {
+        // 仮のバーコード読み取り（実際はQuaggaJSなどのライブラリを使用）
+
+        /*下は完璧*/
+        const barcode = prompt("バーコード読み取りの代わりにISBNを入力してください（例: 9784315523539）");
+        if (barcode) {
+            fetch('/extract-isbn/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: 'barcode=' + encodeURIComponent(barcode)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showPopup(data.isbn);
+                } else {
+                    alert(data.message || 'バーコード読み取りに失敗しました');
+                }
+            })
+            .catch(error => {
+                console.error('バーコード読み取りエラー:', error);
+                alert('バーコード読み取り中にエラーが発生しました');
+            });
+        }
+    }
+
+    function submitManualIsbn() {
+        const isbn = document.getElementById('isbn-input').value;
+        if (isbn) {
+            showPopup(isbn);
+        } else {
+            alert('ISBNを入力してください');
+        }
+    }
+
+    function showPopup(isbn) {
+        const popup = document.getElementById('isbn-popup');
+        const scannedIsbn = document.getElementById('scanned-isbn');
+        const isbnEdit = document.getElementById('isbn-edit');
+        scannedIsbn.textContent = isbn;
+        isbnEdit.value = isbn;
+        popup.style.display = 'block';
+    }
+
+    function closePopup() {
+        /*これミスっても値が入ったままになっていないか？*/
+        const popup = document.getElementById('isbn-popup');
+        popup.style.display = 'none';
+    }
+
+    function confirmIsbn() {
+        const isbnEdit = document.getElementById('isbn-edit');
+        const isbn = isbnEdit.value;
+        if (!isbn || !isbn.match(/^\d{13}$/)) {
+            alert('ISBNは13桁の数字で入力してください');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('isbn', isbn);
+        fetch('/search-book/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.text();
+            } else {
+                return response.json().then(data => {
+                    throw new Error(data.message || '検索に失敗しました');
+                });
+            }
+        })
+        .then(html => {
+            // 現在のページを新しいHTMLで置き換え
+            document.open();
+            document.write(html);
+            document.close();
+        })
+        .catch(error => {
+            console.error('検索エラー:', error);
+            alert('検索中にエラーが発生しました: ' + error.message);
+        });
+    }
+    </script>
+</body>
+</html>
+
+<!--search_book_with_google-->
+<!--<html>
+<head>
+    <title>バーコード読み取り</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+</head>
+<body>
+    <h1>バーコードを読み取る</h1>
+    <button id="start-scan">スキャン開始</button>
+    <div id="scanner-container">
+        <video id="scanner-video" autoplay></video>
+        <canvas id="scanner-canvas" style="display: none;"></canvas>
+    </div>
+    {% csrf_token %}
+
+    <h1>表紙を読み取る</h1>
+<script>
+    document.getElementById('start-scan').addEventListener('click', function() {
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector('#scanner-container'),
+                constraints: {
+                    facingMode: "environment"
+                }
+            },
+            decoder: {
+                readers: ["ean_reader"]
+            }
+        }, function(err) {
+            if (err) {
+                alert('カメラの起動に失敗しました。許可を確認するか、別のデバイスで試してください。');
+                console.error('Quagga初期化エラー:', err);
+                return;
+            }
+            Quagga.start();
+        });
+    
+        Quagga.onDetected(function(result) {
+            const isbn = result.codeResult.code;
+            if (isbn && isbn.length === 13) {
+                Quagga.stop();
+                fetch('/scan/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `isbn=${isbn}`
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('サーバーエラー');
+                    return response.text();
+                })
+                .then(html => {
+                    document.body.innerHTML = html;
+                })
+                .catch(error => {
+                    alert('検索に失敗しました。もう一度試してください。');
+                    console.error('検索エラー:', error);
+                });
+            } else {
+                console.log('無効なバーコード:', isbn);
+            }
+        });
+    });
+</script> -->
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Google検索</title>
+</head>
+<body>
+    <h1>本 Google検索 結果</h1>
+
+    {% if books_info %}
+        <ul>
+        {% for book in books_info %}
+            <li>
+                <strong>{{ book.title }}</strong><br>
+                Authors: {{ book.authors|join:", " }}<br>
+                Publisher: {{ book.publisher }}<br>
+                Published Date: {{ book.published_date }}<br>
+                Description: {{ book.description }}<br>
+                {% if book.image_link %}
+                    <img src="{{ book.image_link }}" alt="{{ book.title }}" />
+                {% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    {% elif error %}
+        <p class="error">{{ error }}</p>
+    {% else %}
+        <p>No books found.</p>
+    {% endif %}
+</body>
+</html>
+ -->

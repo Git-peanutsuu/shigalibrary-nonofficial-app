@@ -2,18 +2,25 @@
 <html>
 <head><title>Library Home</title></head>
 <body>
-    <h1>滋賀県立図書館 お役立ち非公式アプリ</h1>
+    <h1 href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</h1>
         <p>ようこそ、{{ user.name }}さん！現在、ログイン中です</p>
+        <!-- 追加（<body>内） -->
+            <form method="get" action="{% url 'search_book' %}">  <!-- POST→GETに -->
+                <input type="text" name="query" placeholder="本を検索" value="{{ query }}">
+                <button type="submit">検索</button>
+            </form>
+            <button><a href="scan">バーコードを読み取って本を追加する</a></button>
         <ul>
         <h2>今借りている本</h2>
         {% for book in books %}
             <li>{{ book.title }} - {{ book.author }}</li>
+            (ISBN: {{ book.isbn_id }})
         {% empty %}
             <li>借りている本はありません</li>
         {% endfor %}
         </ul>
     <!-- 本の追加は後で検討 -->
 <a href="{% url 'book_list' %}">本の一覧を見る</a><br>
-<a href="{% url 'add_book' %}">本を追加する</a>
+
 </body>
 </html>

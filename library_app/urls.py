@@ -23,5 +23,5 @@ urlpatterns = [
     path('login/', views.line_login, name='line_login'),
     path('auth/', views.line_callback, name='line_callback'),
     path('admin/', admin.site.urls),
-    path('logout/', views.logout_view, name='logout')
+    path('logout/', views.logout_view, name='logout'),
 ]

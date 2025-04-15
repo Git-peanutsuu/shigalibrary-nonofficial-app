@@ -119,8 +119,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
-
+STATIC_URL = '/static/'
+# STATIC_ROOT = BASE_DIR / "staticfiles"(任意)本番用
+STATICFILES_DIRS = [
+    BASE_DIR / "books/static/",  # 相対パスをPathオブジェクトで指定
+]
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -130,7 +133,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LINE_CHANNEL_ID = config('LINE_CHANNEL_ID')
 LINE_CHANNEL_SECRET = config('LINE_CHANNEL_SECRET')
 LINE_REDIRECT_URI = config('LINE_REDIRECT_URI')
-
+CALIL_APPLICATION_KEY = config('CALIL_APPLICATION_KEY')
+RAKUTEN_APPLICATION_ID = config('RAKUTEN_APPLICATION_ID')
 
 # ロギング設定を追加
 LOGGING = {
