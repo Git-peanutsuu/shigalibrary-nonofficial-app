@@ -1,22 +1,28 @@
-{% load static %} 
+{% load static %}
+{% load pagination_tags %}
 <!DOCTYPE html>
 <html>
-<head><title>Search Book</title>
-<!-- FontAwesome読み込み -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-<!-- カスタムCSS -->
-<link rel="stylesheet" href="{% static 'css/external_link_window.css' %}">
+<head>
+    <title>本の検索</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/external_link_window.css' %}">
 </head>
 <body>
-    <h1 href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</h1>
-    <h2>本を検索</h2>
-    <form method="get" action="{% url 'search_book' %}">  <!-- POST→GETに -->
-        <input type="text" name="query" placeholder="本を検索" value="{{ query }}">
-        <button type="submit">検索</button>
+    <h1><a href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</a></h1>
+    <h2>キーワードを入れて本を検索</h2>
+    <form method="get" action="{% url 'search' %}">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <select name="source">
+                <option value="google" {% if source == 'google' or not source %}selected{% endif %}>Googleを使って検索</option>
+                <option value="rakuten" {% if source == 'rakuten' %}selected{% endif %}>楽天を使って検索</option>
+            </select>
+            <input type="text" name="query" placeholder="例）琵琶湖の歴史" value="{{ query }}">
+            <button type="submit">検索</button>
+        </div>
     </form>
     
-    {% if books %}
-        <h2>"{{ query }}" の検索結果</h2>
+    {% if query %}
+        <h2>"{{ query }}" の検索結果（表示可能な最大{{ total_pages }}ページ中{{ page_num }}ページ目表示）</h2>
         <ul>
         {% for book in books %}
             <li data-isbn="{{ book.isbn }}">
@@ -33,12 +39,11 @@
                 {% endif %}
                 <br>
                 {% if book.image_link %}
-                <img src="{{ book.image_link }}" alt="{{ book.title }}" >
-                {%else%}
-                    <p>画像はありません</p>
+                <img src="{{ book.image_link }}" alt="{{ book.title }}の画像" style="max-width: 100px;">
+                {% else %}
+                    <img src="{% static '/images/no_image.png' %}" alt="画像なし" style="max-width: 100px;">
                 {% endif %}
 
-                <!--ログインで分岐-->
                 {% if request.user.is_authenticated %}
                 <form class="book-form" method="post" {% if book.is_added %}action="{% url 'update_book_status' book.isbn %}"{% else %}action="{% url 'add_book' %}"{% endif %}>
                     {% csrf_token %}
@@ -66,41 +71,73 @@
                     {% if book.availability.libkey %}
                         {% for lib, status in book.availability.libkey.items %}
                             <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                            {{ lib }}: {{ status }}
+                            滋賀県立{{ lib }}: {{ status }}
                             <i class="fas fa-external-link-alt"></i>
                          </a>
                         {% empty %}
                         <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                            滋賀県立図書館蔵書なし
+                            滋賀県立図書館:蔵書なし
                             <i class="fas fa-external-link-alt"></i>
                          </a>
                         {% endfor %}
                     {% elif book.availability.status == 'Running' %}
                         <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                            蔵書情報取得中
+                            蔵書情報取得中...もう一度読み込んでください
                             <i class="fas fa-external-link-alt"></i>
                          </a>
                     {% else %}
                     <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                        滋賀県立図書館蔵書なし
+                        滋賀県立図書館:蔵書なし
                         <i class="fas fa-external-link-alt"></i>
                      </a>                    
                      {% endif %}
                 {% else %}
                 <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                    蔵書情報取得中
+                    蔵書情報取得中...もう一度読み込んでください
                     <i class="fas fa-external-link-alt"></i>
                  </a>
                 {% endif %}            
             </li>
         {% empty %}
-            {% if query %}<li>見つかりませんでした</li>{% endif %}
+            <li>違うページを選択してください</li>
         {% endfor %}
         </ul>
+
+        <!-- 取得できなかった件数を表示 -->
+        {% if not_displayed_count > 0 %}
+            <p>（{{ not_displayed_count }}件は書誌情報が取得できなかったため表示できませんでした）</p>
+        {% endif %}
+
+        <!-- ページネーションUI -->
+        <div class="pagination">
+            <p>ページ {{ page_num }} / {{ total_pages }}（表示可能な最大{{ total_items }}件中 {{ books|length }}件表示）</p>
+            
+            {% if has_previous %}
+                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:-1 }}">前のページ</a>
+            {% endif %}
+            
+            {% for num in page_range %}
+                {% if num == page_num %}
+                    <span>[{{ num }}]</span>
+                {% else %}
+                    <a href="{% url 'search' %}?query={{ query }}&page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if has_next %}
+                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:1 }}">次のページ</a>
+            {% endif %}
+<!-- 
+            <form method="get" action="{% url 'search' %}" style="display: inline;">
+                <input type="hidden" name="query" value="{{ query }}">
+                <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="ページ番号">
+                <button type="submit">移動</button>
+            </form> -->
+        </div>
     {%else%}
-     <p>{{ error_message }}</p>
+        <p>{{ error_message }}</p>
     {% endif %}
-    <a href="{% url 'home' %}">戻る</a>
+    <a href="{% url 'home' %}">ホームに戻る</a>
 
     <script>
         function updateSearchStatus(li, status, isAdded) {

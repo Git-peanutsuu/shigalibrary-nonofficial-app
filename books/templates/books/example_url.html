@@ -10,7 +10,7 @@
   
 </head>
 <body>
-<h1><a href="{% url 'example_url' %}">滋賀県立図書館 お役立ち非公式アプリ</a></h1>
+<h1><a href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</a></h1>
 <h3>
 <form method="get" action="{% url 'search_book' %}">  <!-- POST→GETに -->
   <input type="text" name="query" placeholder="本を検索" value="{{ query }}">
@@ -20,7 +20,7 @@
 <h3><a href="{% url 'display_scan_page' %}">バーコードを読み取って追加</a>
 </h3>
 <h2>あなたの本のリスト</h2>
-<form method="get" action="{% url 'example_url' %}">
+<form method="get" action="{% url 'home' %}">
     <label for="status">表示範囲:</label>
     <select name="status" id="status" onchange="this.form.submit()">
         <option value="all" {% if current_status == 'all' %}selected{% endif %}>すべて</option>

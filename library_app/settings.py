@@ -135,6 +135,16 @@ LINE_CHANNEL_SECRET = config('LINE_CHANNEL_SECRET')
 LINE_REDIRECT_URI = config('LINE_REDIRECT_URI')
 CALIL_APPLICATION_KEY = config('CALIL_APPLICATION_KEY')
 RAKUTEN_APPLICATION_ID = config('RAKUTEN_APPLICATION_ID')
+# GOOGLE_BOOKS_API_KEY = config('GOOGLE_BOOKS_API_KEY')
+
+# キャッシュ
+# 本番環境ではRedisやMemcachedを使うのがおすすめ？？？？？？
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 # ロギング設定を追加
 LOGGING = {

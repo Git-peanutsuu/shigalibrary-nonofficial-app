@@ -8,6 +8,7 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 
+
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.shortcuts import render
@@ -18,6 +19,10 @@ from django.http import HttpResponse
 from django.http import JsonResponse
 from django.conf import settings
 # Djangoのプラクティスで、settings.pyをインポートする
+
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.cache import cache
+
 from .models import User
 from .models import UserBook
 
@@ -106,80 +111,138 @@ def line_callback(request):
     except Exception as e:
         return HttpResponse(f"エラー: {e}", status=400)
 
+
 def get_book_image(isbn):
-    """ISBNから書籍の画像URLを取得（楽天APIを使用）book_list()でused"""
-    url = "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
-    params = {
-        "applicationId": settings.RAKUTEN_APPLICATION_ID,
-        "isbn": isbn,
-        "format": "json"
-    }
-    # 9784896329537
+    """ISBNから書籍の画像URLを取得（Google Books APIを使用）-->URLを返す"""
+    # キャッシュキーを作成（例: "book_image_9784315523539"）
+    cache_key = f"book_image_{isbn}"
+    
+    # キャッシュから取得を試みる
+    cached_image = cache.get(cache_key)
+    if cached_image is not None:
+        return cached_image
+
+    # Google Books APIのエンドポイント
+    api_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+    # APIキーが設定されている場合に追加（settings.pyにGOOGLE_BOOKS_API_KEYが必要）
+    if hasattr(settings, 'GOOGLE_BOOKS_API_KEY'):
+        api_url += f"&key={settings.GOOGLE_BOOKS_API_KEY}"
     try:
-        response = requests.get(url, params=params, timeout=5)
+        response = requests.get(api_url, timeout=5)
         response.raise_for_status()
         data = response.json()
-        if data.get("Items"):
-            book = data["Items"][0]["Item"]
-            print(book.get("mediumImageUrl", ""))
-            return book.get("mediumImageUrl", "")
+
+        # 画像URLを抽出
+        if 'items' in data and data['items']:
+            volume_info = data['items'][0]['volumeInfo']
+            image_url = volume_info.get('imageLinks', {}).get('thumbnail')
+            if image_url:
+                # HTTPSに変換（Google Books APIはHTTPで返す場合がある）
+                image_url = image_url.replace("http://", "https://")
+                # キャッシュに保存（保存期間: 1日）
+                cache.set(cache_key, image_url, timeout=86400)
+                return image_url
         return None
     except RequestException as e:
-        logger.error(f'楽天APIエラー: {str(e)} in get_book_image()')
+        logger.error(f'Google Books APIエラー: {str(e)} in get_book_image()')
         return None
     except (KeyError, IndexError) as e:
-        logger.error(f'データ解析エラー: {str(e)}in get_book_image()')
+        logger.error(f'データ解析エラー: {str(e)} in get_book_image()')
         return None
     except Exception as e:
-        logger.error(f'予期せぬエラー: {str(e)}in get_book_image()')
+        logger.error(f'予期せぬエラー: {str(e)} in get_book_image()')
         return None
-def home(request):
-    if request.user.is_authenticated:
-        # Fetch books associated with the logged-in user
-        # TODO:著者だけでなく、いろんなことも標示されている。
-        user_books = UserBook.objects.filter(user=request.user, is_reading=True).exclude(isbn_id__isnull=True)
-        context = {
-            'message': "ログイン中です。",
-            'user': request.user,  # Userオブジェクト
-            'books': user_books,  # UserBookのリスト
-        }
-        return render(request, 'books/home.html', context)
-    else:
-        return render(request, 'books/index.html', {'message': "ログインしてください"})
-
-@login_required(login_url='line_login')
-    # TODO:画像表示
-def book_list(request):
-    # user = User.objects.get(line_id=request.user)
+    
+def paginate_items(request, items, per_page):
+    """
+    リストをページネーションする汎用関数。
+    Args:
+        request: HTTPリクエスト（ページ番号を取得するため）
+        items: ページネーション対象のリスト
+        per_page: 1ページあたりの表示数
+    Returns:
+        page_obj: 現在のページデータ（PaginatorのPageオブジェクト）
+    When:
+        HOMEとserach_book内で記述
+    """
+    paginator = Paginator(items, per_page)
+    page = request.GET.get('page', 1)
+    
+    # 全角数字を半角数字に変換
+    if isinstance(page, str):
+        # 全角数字（１２３）を半角数字(123)に変換
+        zen_to_han = str.maketrans('１２３４５６７８９０', '1234567890')
+        page = page.translate(zen_to_han)
     try:
-        status = request.GET.get('status', 'all')
-        books = UserBook.objects.filter(user=request.user).exclude(isbn_id__isnull=True)
-        if status == 'want':
-            books = books.filter(is_want_to_read=True)
-        elif status == 'reading':
-            books = books.filter(is_reading=True)
-        elif status == 'read':
-            books = books.filter(is_read=True)
-        book_list = []
-        for book in books:
-            image_link = get_book_image(book.isbn_id)
-            print('image_link ->>',image_link)
-            book_list.append({
-                'title': book.title,
-                'author': book.author,
-                'isbn_id': book.isbn_id,
-                'is_want_to_read': book.is_want_to_read,
-                'is_reading': book.is_reading,
-                'is_read': book.is_read,
-                'is_added': True,
-                'image_link': image_link if image_link else '',
-                'calil_link': f"https://calil.jp/book/{book.isbn_id}/search?nearby=滋賀県立図書館",
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        # ページ番号が整数でない場合、1ページ目を返す
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        # ページ番号が範囲外の場合、最後のページを返す
+        page_obj = paginator.page(paginator.num_pages)
+    return page_obj
+   
+def home(request):
+    if not request.user.is_authenticated:
+        return render(request, 'books/index.html', {'message': 'ログインして,本を管理してみませんか'})
+    else:
+        try:
+            status = request.GET.get('status', 'all')
+            books = UserBook.objects.filter(user=request.user).exclude(isbn_id__isnull=True)
+            if status == 'want':
+                books = books.filter(is_want_to_read=True)
+            elif status == 'reading':
+                books = books.filter(is_reading=True)
+            elif status == 'read':
+                books = books.filter(is_read=True)
+
+            # 並び順（新しい順/古い順）
+            sort = request.GET.get('sort', 'oldest')  # デフォルトは古い順
+            if sort == 'oldest':
+                books = books.order_by('id')  # 古い順（id昇順）
+            else:
+                books = books.order_by('-id')  # 新しい順（id降順）
+
+            book_list = []
+            for book in books:
+                image_link = get_book_image(book.isbn_id)
+                book_list.append({
+                    'title': book.title,
+                    'author': book.author,
+                    'isbn_id': book.isbn_id,
+                    'is_want_to_read': book.is_want_to_read,
+                    'is_reading': book.is_reading,
+                    'is_read': book.is_read,
+                    'is_added': True,
+                    'image_link': image_link if image_link else '',
+                    'calil_link': f"https://calil.jp/book/{book.isbn_id}/search?nearby=滋賀県立図書館",
+                })
+
+            # ページネーション（1ページあたり15件）
+            page_obj = paginate_items(request, book_list, per_page=15)
+            context = {
+                "page_obj": page_obj,  # テンプレートでページ情報を利用
+                "current_status": status,
+                'sort': sort,
+            }
+            return render(request, "books/home.html", context)
+        except UserBook.DoesNotExist:
+            logger.error("UserBookが見つかりません。")
+            return render(request, "books/home.html", {
+                "error": "本が見つかりませんでした。検索して新しい本を追加してみてください。"
             })
-        context = {"books": book_list, "current_status": status}
-        return render(request, "books/book_list.html", context)
-    except Exception as e:
-        logger.error(f"Error in book_list: {str(e)}")
-        return render(request, "books/book_list.html", {"error": "本の取得に失敗しました。"})
+        except RequestException as e:
+            logger.error(f"外部APIエラー: {str(e)}")
+            return render(request, "books/home.html", {
+                "error": "外部サービスとの通信に失敗しました。ページを再読み込みしてください。問題が続く場合は、管理者（example@support.com）までご連絡ください。"
+            })
+        except Exception as e:
+            logger.error(f"予期しないエラー: {str(e)}")
+            return render(request, "books/home.html", {
+                "error": "予期しないエラーが発生しました。ページを再読み込みしてください。問題が続く場合は、管理者（example@support.com）までご連絡ください。"
+            })
+
 @login_required(login_url='line_login')
 def add_book(request):
     if request.method != 'POST':
@@ -248,81 +311,242 @@ def delete_book(request, isbn):
             return JsonResponse({"status": "error", "message": "指定された本が見つかりません"}, status=404)
     return JsonResponse({"status": "error", "message": "無効なリクエストです"}, status=400)
 
-def search_book(request):
+def judge_search(request):#from home.html and search_book.html
     query = request.GET.get('query', '')
+    source = request.GET.get('source', 'google')  # デフォルトはGoogle
+
+    if source == 'rakuten':
+        return search_by_rakuten(request, query)
+    return search_by_google(request, query)
+
+def search_by_google(request, query):
+    query = request.GET.get('query', '')
+    source = request.GET.get('source', 'google')  # デフォルトはGoogle
     if not query:
         context = {
             'error_message': '検索キーワードを入力してください。',
         }
-        return render(request, 'books/search_book.html', context)
-    
-    # 楽天ブックスAPI
+        return render(request, 'books/google_search_result.html', context)
+    # ページ番号からstartIndexを計算（1ページ15件）
+    page = request.GET.get('page', '1')
     try:
-        api_url = f"https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?applicationId={settings.RAKUTEN_APPLICATION_ID}&hits=15&title={query}"
-        response = requests.get(api_url)
-        response.raise_for_status()
-        books = response.json().get('Items', [])
-        # logger.info(books[5] if len(books) > 5 else books)  # デバッグ用
-        if not books:
-            context = {
-                'error_message': '楽天ブックスで検索結果が見つかりませんでした。',
-                'query': query,
-            }
-            return render(request, 'books/search_book.html', context)
-    except requests.exceptions.RequestException as e:
-        context = {
-            'error_message': f'楽天ブックスとの接続に問題が発生しました: {str(e)}',
-            'query': query,
-        }
-        return render(request, 'books/search_book.html', context)
+        page_num = int(page)
+    except ValueError:
+        page_num = 1
+    items_per_page = 15
+    start_index = (page_num - 1) * items_per_page  # 例: 2ページ目ならstartIndex=15
 
-    # カーリルAPI
+    # Google Books APIで検索（現在のページの15件のみ取得）
+    books = []
+    total_items = 0
     try:
-        isbns = [b['Item'].get('isbn', 'N/A') for b in books if b['Item'].get('isbn') != 'N/A']
-        if not isbns:
-            calil_data = {}
-        else:
+        google_url = f"https://www.googleapis.com/books/v1/volumes?q={query}&startIndex={start_index}&maxResults={items_per_page}"
+        if hasattr(settings, 'GOOGLE_BOOKS_API_KEY'):
+            google_url += f"&key={settings.GOOGLE_BOOKS_API_KEY}"
+        response = requests.get(google_url, timeout=5)
+        response.raise_for_status()
+        google_data = response.json()
+        total_items = min(google_data.get('totalItems', 0), 1000)  # 取得可能な最大件数に制限
+        logger.info(f'Google Books APIデータ取得：{google_data.get('totalItems')}')
+        items = google_data.get('items', [])
+        
+        for item in items:
+            volume_info = item.get('volumeInfo', {})
+            isbn = None
+            identifiers = volume_info.get('industryIdentifiers', [])
+            for identifier in identifiers:
+                if identifier.get('type') == 'ISBN_13':
+                    isbn = identifier.get('identifier')
+                    break
+                elif identifier.get('type') == 'OTHER':
+                    logger.info(f"ISBNなし、PKEY発見: PKEY:{identifier.get('identifier')} for title {volume_info.get('title')}")
+            
+            books.append({
+                'title': volume_info.get('title', 'N/A'),
+                'author': ', '.join(volume_info.get('authors', ['N/A'])),
+                'isbn': isbn,
+                'image_link': get_book_image(isbn) if isbn else None,
+                'calil_link': f"https://calil.jp/book/{isbn}/search?nearby=滋賀県立図書館" if isbn else None,
+            })
+    except RequestException as e:
+        logger.error(f'Google Books APIエラー: {str(e)}')
+        books = []
+
+    # ISBNがある本だけ先に抽出（カーリルAPIの処理を最適化）
+    books_with_isbn = [book for book in books if book['isbn'] is not None]
+    calil_data = {}
+    if books_with_isbn:
+        try:
+            isbns = [b['isbn'] for b in books_with_isbn]
             calil_url = f"https://api.calil.jp/check?appkey={settings.CALIL_APPLICATION_KEY}&systemid=Shiga_Pref&isbn={','.join(isbns)}&format=json"
-            calil_response = requests.get(calil_url)
+            calil_response = requests.get(calil_url, timeout=5)
             calil_response.raise_for_status()
-            # JSONP対策: callback(...)を剥がしてJSONに
             response_text = calil_response.text
             if response_text.startswith('callback('):
-                response_text = response_text[9:-2]  # 'callback('と');'を削除
+                response_text = response_text[9:-2]
             calil_data = json.loads(response_text).get('books', {})
-            logger.info("カーリルデータ:", calil_data)  # デバッグ用
-    except requests.exceptions.RequestException as e:
-        calil_data = {}
-        logger.info(f"カーリルエラー: {str(e)}")
-    except ValueError as e:
-        calil_data = {}
-        logger.info(f"カーリルJSONパースエラー: {str(e)}")
+        except RequestException as e:
+            logger.info(f"カーリルエラー: {str(e)}")
+        except ValueError as e:
+            logger.info(f"カーリルJSONパースエラー: {str(e)}")
 
-    # Login true ->追加を下かどうかを確認, not true -> 空のまま表示
+    # ユーザーの本リストとステータスを反映
     if request.user.is_authenticated:
         user_books = set(UserBook.objects.filter(user=request.user).values_list('isbn_id', flat=True))
+        def get_book_status(isbn):
+            return UserBook.objects.filter(user=request.user, isbn_id=isbn).first()
     else:
         user_books = set()
-    # TODO:後悔,,,モデルにそもそもstatusとかを＿
-    context = {
-    'books': [
-        {
-            'title': b['Item'].get('title', 'N/A'),
-            'author': b['Item'].get('author', 'N/A'),
-            'isbn': b['Item'].get('isbn', 'N/A'),
-            'image_link': b['Item'].get('largeImageUrl', '').replace('http://', 'https://'),
-            'availability': calil_data.get(b['Item'].get('isbn', 'N/A'), {}).get('Shiga_Pref', {}),
-            'calil_link': f"https://calil.jp/book/{b['Item'].get('isbn', 'N/A')}/search?nearby=滋賀県立図書館",
-            'is_added': b['Item'].get('isbn', 'N/A') in user_books,
-            'status': UserBook.objects.filter(user=request.user, isbn_id=b['Item'].get('isbn', 'N/A')).first()  # firstで一意に
-        } for b in books if b['Item'].get('isbn') != 'N/A'
-    ],
-    'query': query,
-    }
-    for book in context['books']:
-        logger.info(f"Book: {book['title']}, Is Added: {book['is_added']}")
+        def get_book_status(isbn):
+            return None
 
-    return render(request, 'books/search_book.html', context)
+    processed_books = [
+        {
+            'title': book['title'],
+            'author': book['author'],
+            'isbn': book['isbn'] if book['isbn'] else 'N/A',
+            'image_link': book['image_link'],
+            'availability': calil_data.get(book['isbn'], {}).get('Shiga_Pref', {}) if book['isbn'] else {},
+            'calil_link': book['calil_link'] if book['isbn'] else None,
+            'is_added': book['isbn'] in user_books,
+            'status': get_book_status(book['isbn'])
+        }
+        for book in books if book['isbn'] is not None
+    ]
+
+    # 取得できなかった件数を計算
+    fetched_books_count = len(books)  # Google Books APIで取得した件数
+    displayed_books_count = len(processed_books)  # 表示している件数（ISBNあり）
+    not_displayed_count = fetched_books_count - displayed_books_count  # 取得できなかった件数
+
+    # ページネーション情報（カスタム）
+    total_pages = (total_items + items_per_page - 1) // items_per_page  # 総ページ数を計算
+    has_next = start_index + items_per_page < total_items  # 次のページがあるか
+    has_previous = page_num > 1  # 前のページがあるか
+
+    # 前後3件のページ番号を計算
+    page_range = range(max(1, page_num - 3), min(total_pages + 1, page_num + 4))
+
+    context = {
+        'books': processed_books,
+        'query': query,
+        'total_items': total_items,
+        'page_num': page_num,
+        'total_pages': total_pages,
+        'has_next': has_next,
+        'has_previous': has_previous,
+        'page_range': page_range,
+        'not_displayed_count': not_displayed_count,  # 取得できなかった件数
+    }
+    return render(request, 'books/google_search_result.html', context)
+
+def search_by_rakuten(request, query):
+    if not query:
+        context = {
+            'error_message': '検索キーワードを入力してください。',
+        }
+        return render(request, 'books/rakuten_search_result.html', context)
+
+    page = request.GET.get('page', '1')
+    try:
+        page_num = int(page)
+    except ValueError:
+        page_num = 1
+    items_per_page = 15
+    
+    books = []
+    total_items = 0
+    try:
+        rakuten_url = (
+            f"https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
+            f"?applicationId={settings.RAKUTEN_APPLICATION_ID}"
+            f"&title={query}"
+            f"&page={page_num}"
+            f"&hits={items_per_page}"
+            f"&format=json"
+        )
+        response = requests.get(rakuten_url, timeout=5)
+        response.raise_for_status()
+        rakuten_data = response.json()
+        total_items = min(rakuten_data.get('count', 0), 1000)
+        items = rakuten_data.get('Items', [])
+        
+        for item in items:
+            book_info = item.get('Item', {})
+            isbn = book_info.get('isbn')
+            books.append({
+                'title': book_info.get('title', 'N/A'),
+                'author': book_info.get('author', 'N/A'),
+                'isbn': isbn,
+                'image_link': book_info.get('mediumImageUrl'),
+                'calil_link': f"https://calil.jp/book/{isbn}/search?nearby=滋賀県立図書館" if isbn else None,
+            })
+    except RequestException as e:
+        logger.error(f'楽天APIエラー: {str(e)}')
+        books = []
+
+    books_with_isbn = [book for book in books if book['isbn'] is not None]
+    calil_data = {}
+    if books_with_isbn:
+        try:
+            isbns = [b['isbn'] for b in books_with_isbn]
+            calil_url = f"https://api.calil.jp/check?appkey={settings.CALIL_APPLICATION_KEY}&systemid=Shiga_Pref&isbn={','.join(isbns)}&format=json"
+            calil_response = requests.get(calil_url, timeout=5)
+            calil_response.raise_for_status()
+            response_text = calil_response.text
+            if response_text.startswith('callback('):
+                response_text = response_text[9:-2]
+            calil_data = json.loads(response_text).get('books', {})
+        except RequestException as e:
+            logger.info(f"カーリルエラー: {str(e)}")
+        except ValueError as e:
+            logger.info(f"カーリルJSONパースエラー: {str(e)}")
+
+    if request.user.is_authenticated:
+        user_books = set(UserBook.objects.filter(user=request.user).values_list('isbn_id', flat=True))
+        def get_book_status(isbn):
+            return UserBook.objects.filter(user=request.user, isbn_id=isbn).first()
+    else:
+        user_books = set()
+        def get_book_status(isbn):
+            return None
+
+    processed_books = [
+        {
+            'title': book['title'],
+            'author': book['author'],
+            'isbn': book['isbn'] if book['isbn'] else 'N/A',
+            'image_link': book['image_link'],
+            'availability': calil_data.get(book['isbn'], {}).get('Shiga_Pref', {}) if book['isbn'] else {},
+            'calil_link': book['calil_link'] if book['isbn'] else None,
+            'is_added': book['isbn'] in user_books,
+            'status': get_book_status(book['isbn'])
+        }
+        for book in books if book['isbn'] is not None
+    ]
+
+    fetched_books_count = len(books)
+    displayed_books_count = len(processed_books)
+    not_displayed_count = fetched_books_count - displayed_books_count
+
+    total_pages = (total_items + items_per_page - 1) // items_per_page
+    has_next = page_num < total_pages
+    has_previous = page_num > 1
+    page_range = range(max(1, page_num - 3), min(total_pages + 1, page_num + 4))
+
+    context = {
+        'books': processed_books,
+        'query': query,
+        'total_items': total_items,
+        'page_num': page_num,
+        'total_pages': total_pages,
+        'has_next': has_next,
+        'has_previous': has_previous,
+        'page_range': page_range,
+        'not_displayed_count': not_displayed_count,
+        'source': 'rakuten',
+    }
+    return render(request, 'books/rakuten_search_result.html', context)
 # ----------
 # ---scan---
 @login_required(login_url='/login/')
@@ -417,40 +641,9 @@ def search_book_by_isbn(request):
         }
         return render(request, "books/scan_result.html", context)
     return redirect('display_scan_page')
-@login_required(login_url='/login/')
-def example_url(request):
-    if not request.user.is_authenticated:
-        return render(request, 'books/index.html',{'message':'あなたはまだログインしていません。'})
-    else:
-        try:
-            status = request.GET.get('status', 'all')
-            books = UserBook.objects.filter(user=request.user).exclude(isbn_id__isnull=True)
-            if status == 'want':
-                books = books.filter(is_want_to_read=True)
-            elif status == 'reading':
-                books = books.filter(is_reading=True)
-            elif status == 'read':
-                books = books.filter(is_read=True)
-            book_list = []
-            for book in books:
-                image_link = get_book_image(book.isbn_id)
-                print('image_link ->>',image_link)
-                book_list.append({
-                    'title': book.title,
-                    'author': book.author,
-                    'isbn_id': book.isbn_id,
-                    'is_want_to_read': book.is_want_to_read,
-                    'is_reading': book.is_reading,
-                    'is_read': book.is_read,
-                    'is_added': True,
-                    'image_link': image_link if image_link else '',
-                    'calil_link': f"https://calil.jp/book/{book.isbn_id}/search?nearby=滋賀県立図書館",
-                })
-            context = {"books": book_list, "current_status": status}
-            return render(request, "books/example_url.html", context)
-        except Exception as e:
-            logger.error(f"Error in book_list: {str(e)}")
-            return render(request, "books/example_url.html", {"error": "本の取得に失敗しました。"})
+# @login_required(login_url='/login/')
+# def example_url(request):
+
 
 # TODO:共有機能　API実装: Django REST Framework
 # from rest_framework.decorators import api_view

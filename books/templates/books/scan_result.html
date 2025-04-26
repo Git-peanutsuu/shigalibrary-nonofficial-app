@@ -69,7 +69,7 @@
     {% endif %}
 
     <button id="rescan"><a href="{% url 'display_scan_page' %}">もう一度読み取る</a></button>
-    <button id="tolist"><a href="{% url 'book_list' %}">本のリストに戻る</a></button>
+    <button id="tolist"><a href="{% url 'home' %}">本のリストに戻る</a></button>
 
     <script>
     (function() {
@@ -218,7 +218,7 @@
         if (toListBtn) {
             toListBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                window.location.href = "{% url 'book_list' %}";
+                window.location.href = "{% url 'home' %}";
             });
         } else {
             console.error('tolistボタンが見つかりません');

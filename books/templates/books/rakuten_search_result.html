@@ -1,0 +1,221 @@
+{% load static %}
+{% load pagination_tags %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>検索結果 (Rakuten)</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/external_link_window.css' %}">
+</head>
+<body>
+    <h1><a href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</a></h1>
+    <h2>キーワードを入れて本を検索</h2>
+    <form method="get" action="{% url 'search' %}">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <select name="source">
+                <option value="google" {% if source == 'google' %}selected{% endif %}>Google Books</option>
+                <option value="rakuten" {% if source == 'rakuten' %}selected{% endif %}>楽天ブックス</option>
+            </select>
+            <input type="text" name="query" placeholder="例）琵琶湖の歴史" value="{{ query }}">
+            <button type="submit">検索</button>
+        </div>
+    </form>
+    
+    {% if query %}
+        <h2>"{{ query }}" の検索結果（最大表示可能な{{ total_pages }}ページ中{{ page_num }}ページ目表示）</h2>
+        <ul>
+        {% for book in books %}
+            <li data-isbn="{{ book.isbn }}">
+                {{ book.title }} - {{ book.author }} (ISBN: {{ book.isbn }}) 
+
+                {% if book.is_added %}
+                <span class="status-text" style="color: green;">
+                    [追加済み: 
+                    {% if book.status.is_read %}読んだ
+                    {% elif book.status.is_reading %}読んでいる
+                    {% elif book.status.is_want_to_read %}読みたい
+                    {% else %}未設定{% endif %}]
+                </span>
+                {% endif %}
+                <br>
+                {% if book.image_link %}
+                <img src="{{ book.image_link }}" alt="本の表紙の画像" >
+                {% else %}
+                    <img src="{% static '/images/no_image.png' %}" alt="画像なし" style="max-width: 100px;">
+                {% endif %}
+
+                {% if request.user.is_authenticated %}
+                <form class="book-form" method="post" {% if book.is_added %}action="{% url 'update_book_status' book.isbn %}"{% else %}action="{% url 'add_book' %}"{% endif %}>
+                    {% csrf_token %}
+                    <input type="hidden" name="title" value="{{ book.title }}">
+                    <input type="hidden" name="author" value="{{ book.author }}">
+                    <input type="hidden" name="isbn_id" value="{{ book.isbn }}">
+                    {% if book.is_added %}
+                        <label><input type="radio" name="status" value="want" {% if book.status.is_want_to_read %}checked{% endif %}>読みたい</label>
+                        <label><input type="radio" name="status" value="reading" {% if book.status.is_reading %}checked{% endif %}>読んでいる</label>
+                        <label><input type="radio" name="status" value="read" {% if book.status.is_read %}checked{% endif %}>読んだ</label>
+                        <button type="submit" class="update-btn">変更</button>
+                        <button type="button" class="delete-btn" data-isbn="{{ book.isbn }}">削除</button>
+                    {% else %}
+                        <select name="status">
+                            <option value="want">読みたい</option>
+                            <option value="reading">読んでいる</option>
+                            <option value="read">読んだ</option>
+                        </select>
+                        <button type="submit" class="add-btn">追加</button>
+                    {% endif %}
+                </form>
+                {% endif %}
+
+                {% if book.availability %}
+                    {% if book.availability.libkey %}
+                        {% for lib, status in book.availability.libkey.items %}
+                            <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                            滋賀県立{{ lib }}: {{ status }}
+                            <i class="fas fa-external-link-alt"></i>
+                         </a>
+                        {% empty %}
+                        <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                            滋賀県立図書館:蔵書なし
+                            <i class="fas fa-external-link-alt"></i>
+                         </a>
+                        {% endfor %}
+                    {% elif book.availability.status == 'Running' %}
+                        <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                            蔵書情報取得中...もう一度読み込んでください
+                            <i class="fas fa-external-link-alt"></i>
+                         </a>
+                    {% else %}
+                    <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                        滋賀県立図書館:蔵書なし
+                        <i class="fas fa-external-link-alt"></i>
+                     </a>                    
+                     {% endif %}
+                {% else %}
+                <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                    蔵書情報取得中...もう一度読み込んでください
+                    <i class="fas fa-external-link-alt"></i>
+                 </a>
+                {% endif %}            
+            </li>
+        {% empty %}
+            <li>見つかりませんでした</li>
+        {% endfor %}
+        </ul>
+
+        {% if not_displayed_count > 0 %}
+            <p>（{{ not_displayed_count }}件はISBNが取得できなかったため表示されていません）</p>
+        {% endif %}
+
+        <div class="pagination">
+            <p>ページ {{ page_num }} / {{ total_pages }}（表示可能な最大{{ total_items }}件中 {{ books|length }}件表示）</p>
+            
+            {% if has_previous %}
+                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:-1 }}&source=rakuten">前のページ</a>
+            {% endif %}
+            
+            {% for num in page_range %}
+                {% if num == page_num %}
+                    <span>[{{ num }}]</span>
+                {% else %}
+                    <a href="{% url 'search' %}?query={{ query }}&page={{ num }}&source=rakuten">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if has_next %}
+                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:1 }}&source=rakuten">次のページ</a>
+            {% endif %}
+<!-- 
+            <form method="get" action="{% url 'search' %}" style="display: inline;">
+                <input type="hidden" name="query" value="{{ query }}">
+                <input type="hidden" name="source" value="rakuten">
+                <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="ページ番号">
+                <button type="submit">移動</button>
+            </form> -->
+        </div>
+    {%else%}
+        <p>{{ error_message }}</p>
+    {% endif %}
+    <a href="{% url 'home' %}">ホームに戻る</a>
+
+    <!-- script部分は変更なし、省略 -->
+</body>
+<script>
+    function updateSearchStatus(li, status, isAdded) {
+        const statusText = li.querySelector('.status-text') || li.insertBefore(document.createElement('span'), li.querySelector('form'));
+        statusText.className = 'status-text';
+        statusText.style.color = 'green';
+        statusText.textContent = isAdded ? `[追加済み: ${status === 'want' ? '読みたい' : status === 'reading' ? '読んでいる' : '読んだ'}]` : '';
+    }
+    
+    function attachDeleteEvent(btn) {
+        btn.addEventListener('click', function() {
+            const isbn = this.dataset.isbn;
+            const li = btn.closest('li');
+            fetch(`/delete/${isbn}/`, {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'deleted') {
+                    const form = li.querySelector('form');
+                    form.action = `/add/`;
+                    form.innerHTML = `
+                        {% csrf_token %}
+                        <input type="hidden" name="title" value="${form.querySelector('input[name=title]').value}">
+                        <input type="hidden" name="author" value="${form.querySelector('input[name=author]').value}">
+                        <input type="hidden" name="isbn_id" value="${isbn}">
+                        <select name="status">
+                            <option value="want">読みたい</option>
+                            <option value="reading">読んでいる</option>
+                            <option value="read">読んだ</option>
+                        </select>
+                        <button type="submit" class="add-btn">追加</button>
+                    `;
+                    updateSearchStatus(li, '', false);
+                    btn.remove();
+                }
+            })
+            .catch(error => console.error('削除エラー:', error));
+        });
+    }
+    
+    document.querySelectorAll('.book-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const li = this.closest('li');
+            const isbn = li.dataset.isbn;
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'added' || data.status === 'updated') {
+                    updateSearchStatus(li, data.current_status, true);
+                    form.action = `/update/${isbn}/`;
+                    form.innerHTML = `
+                        {% csrf_token %}
+                        <input type="hidden" name="title" value="${form.querySelector('input[name=title]').value}">
+                        <input type="hidden" name="author" value="${form.querySelector('input[name=author]').value}">
+                        <input type="hidden" name="isbn_id" value="${isbn}">
+                        <label><input type="radio" name="status" value="want" ${data.current_status === 'want' ? 'checked' : ''}>読みたい</label>
+                        <label><input type="radio" name="status" value="reading" ${data.current_status === 'reading' ? 'checked' : ''}>読んでいる</label>
+                        <label><input type="radio" name="status" value="read" ${data.current_status === 'read' ? 'checked' : ''}>読んだ</label>
+                        <button type="submit" class="update-btn">変更</button>
+                        <button type="button" class="delete-btn" data-isbn="${isbn}">削除</button>
+                    `;
+                    attachDeleteEvent(form.querySelector('.delete-btn'));  // 追加後にイベント付与
+                } else if (data.status === 'exists') {
+                    alert('既に追加済みです');
+                }
+            })
+            .catch(error => console.error('エラー:', error));
+        });
+    });
+    
+    document.querySelectorAll('.delete-btn').forEach(attachDeleteEvent);
+    </script>
+</html>
