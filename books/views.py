@@ -347,7 +347,7 @@ def search_by_google(request, query):
         response.raise_for_status()
         google_data = response.json()
         total_items = min(google_data.get('totalItems', 0), 1000)  # 取得可能な最大件数に制限
-        logger.info(f'Google Books APIデータ取得：{google_data.get('totalItems')}')
+        logger.info(f'Google Books APIデータ取得：{google_data.get("totalItems")}')
         items = google_data.get('items', [])
         
         for item in items:
