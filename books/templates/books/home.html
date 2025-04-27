@@ -11,7 +11,7 @@
   
 </head>
 <body>
-<h1><a href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</a></h1>
+<h1><a href="{% url 'home' %}">滋賀県立図書館 非公式アプリ</a></h1>
 <span><p>ようこそ、現在ログイン中です</p></span>
 <h3>
 <form method="get" action="{% url 'search' %}">
@@ -74,49 +74,46 @@
         <a href="?page={{ page_obj.next_page_number }}&status={{ current_status }}&sort={{ sort }}">次のページ</a>
     {% endif %}
 
-    <form method="get" action="{% url 'home' %}" style="display: inline;">
+    <!-- <form method="get" action="{% url 'home' %}" style="display: inline;">
         <input type="number" name="page" min="1" max="{{ page_obj.paginator.num_pages }}" placeholder="ページ番号">
         <input type="hidden" name="status" value="{{ current_status }}">
         <input type="hidden" name="sort" value="{{ sort }}">
         <button type="submit">移動</button>
-    </form>
+    </form> -->
 </div>
 
 {% if page_obj %}
     <ul>
-    {% for book in page_obj %}
-    <li data-isbn="{{ book.isbn_id }}">
-        {{ book.title }} - {{ book.author }}
-        (ISBN:{{ book.isbn_id}})
-        <br>
-        {% if book.image_link %}
-            <img src="{{ book.image_link }}" alt="{{ book.title }}の画像" style="max-width: 100px;">
-        {% else %}
-            <img src="{% static '/images/no_image.png' %}" alt="画像なし" style="max-width: 100px;">
-        {% endif %}
-        <br>
-        <span class="status-text" style="color: green;">
-            {% if book.is_read %}✓読んだ
-            {% elif book.is_reading %}✓読んでいる
-            {% elif book.is_want_to_read %}✓読みたい
-            {% else %}未設定{% endif %}
-        </span>
-        
-            <a href="{{ book.calil_link }}" 
-               target="_blank" 
-               rel="noopener noreferrer" 
-               class="external-link">
-               滋賀県立図書館の蔵書を確認
-               <i class="fas fa-external-link-alt"></i>
+        {% for book in page_obj %}
+        <li data-isbn="{{ book.isbn_id }}" data-title="{{ book.title }}" data-author="{{ book.author }}">
+            {{ book.title }} - {{ book.author }} (ISBN:{{ book.isbn_id}})
+            <br>
+            {% if book.image_link %}
+                <img src="{{ book.image_link }}" alt="{{ book.title }}の画像" style="max-width: 100px;">
+            {% else %}
+                <img src="{% static '/images/no_image.png' %}" alt="画像なし" style="max-width: 100px;">
+            {% endif %}
+            <br>
+            <span class="status-text" style="color: green;">
+                {% if book.is_read %}✓読んだ
+                {% elif book.is_reading %}✓読んでいる
+                {% elif book.is_want_to_read %}✓読みたい
+                {% else %}未設定{% endif %}
+            </span>
+            <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                滋賀県立図書館の蔵書を確認
+                <i class="fas fa-external-link-alt"></i>
             </a>
-        <form class="book-form" method="post" action="{% url 'update_book_status' book.isbn_id %}">
-            {% csrf_token %}
-            <label><input type="radio" name="status" value="want" {% if book.is_want_to_read %}checked{% endif %}>読みたい</label>
-            <label><input type="radio" name="status" value="reading" {% if book.is_reading %}checked{% endif %}>読んでいる</label>
-            <label><input type="radio" name="status" value="read" {% if book.is_read %}checked{% endif %}>読んだ</label>
-            <button type="submit" class="update-btn">変更</button>
-            <button type="button" class="delete-btn" data-isbn="{{ book.isbn_id }}">削除</button>
-        </form>
+            <form class="book-form" method="post" action="{% url 'update_book_status' book.isbn_id %}">
+                {% csrf_token %}
+                <label><input type="radio" name="status" value="want" {% if book.is_want_to_read %}checked{% endif %}>読みたい</label>
+                <label><input type="radio" name="status" value="reading" {% if book.is_reading %}checked{% endif %}>読んでいる</label>
+                <label><input type="radio" name="status" value="read" {% if book.is_read %}checked{% endif %}>読んだ</label>
+                <button type="submit" class="update-btn">変更</button>
+                <button type="button" class="delete-btn" data-isbn="{{ book.isbn_id }}">削除</button>
+            </form>
+            <div class="error-message" style="color: red; display: none;"></div>
+        </li>
         {% empty %}
             <li>本がありません。検索して追加してください。</li>
         {% endfor %}
@@ -188,8 +185,8 @@
             const li = btn.closest('li');
             const form = li.querySelector('form');
             const bookData = {
-                title: li.textContent.split(' - ')[0].trim(),
-                author: li.textContent.split(' - ')[1].split(' [')[0].trim(),
+                title: li.dataset.title,
+                author: li.dataset.author,
                 status: form.querySelector('input[name=status]:checked')?.value || 'want'
             };
             fetch(`/delete/${isbn}/`, {
@@ -209,9 +206,18 @@
                         <button type="button" class="undo-btn" data-isbn="${isbn}">削除を取り消す</button>
                     `;
                     attachUndoEvent(li.querySelector('.undo-btn'));
+                } else {
+                    const errorMessage = li.querySelector('.error-message');
+                    errorMessage.style.display = 'block';
+                    errorMessage.textContent = '削除に失敗しました。もう一度お試しください。';
                 }
             })
-            .catch(error => console.error('削除エラー:', error));
+            .catch(error => {
+                console.error('削除エラー:', error);
+                const errorMessage = li.querySelector('.error-message');
+                errorMessage.style.display = 'block';
+                errorMessage.textContent = '削除中にエラーが発生しました。';
+            });
         });
     }
     
@@ -223,6 +229,9 @@
             const undoData = deletedBooks[isbn];
             if (!undoData) {
                 console.error('削除データが見つかりません:', isbn);
+                const errorMessage = li.querySelector('.error-message');
+                errorMessage.style.display = 'block';
+                errorMessage.textContent = '取り消しデータが見つかりません。';
                 return;
             }
             const formData = new FormData();
@@ -251,15 +260,21 @@
                     delete deletedBooks[isbn];
                     attachDeleteEvent(li.querySelector('.delete-btn'));
                 } else {
-                    console.error('追加失敗:', data);
+                    const errorMessage = li.querySelector('.error-message');
+                    errorMessage.style.display = 'block';
+                    errorMessage.textContent = data.message || '取り消しに失敗しました。';
                 }
             })
-            .catch(error => console.error('取り消しエラー:', error));
+            .catch(error => {
+                console.error('取り消しエラー:', error);
+                const errorMessage = li.querySelector('.error-message');
+                errorMessage.style.display = 'block';
+                errorMessage.textContent = '取り消し中にエラーが発生しました。';
+            });
         });
     }
     
     document.querySelectorAll('.delete-btn').forEach(attachDeleteEvent);
-
-    </script>
+</script>
 </body>
 </html>

@@ -8,13 +8,13 @@
     <link rel="stylesheet" href="{% static 'css/external_link_window.css' %}">
 </head>
 <body>
-    <h1><a href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</a></h1>
+    <h1><a href="{% url 'home' %}">滋賀県立図書館 非公式アプリ</a></h1>
     <h2>キーワードを入れて本を検索</h2>
     <form method="get" action="{% url 'search' %}">
         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <select name="source">
-                <option value="google" {% if source == 'google' %}selected{% endif %}>Google Books</option>
-                <option value="rakuten" {% if source == 'rakuten' %}selected{% endif %}>楽天ブックス</option>
+                <option value="google" {% if source == 'google' %}selected{% endif %}>Googleで検索</option>
+                <option value="rakuten" {% if source == 'rakuten' %}selected{% endif %}>楽天で検索</option>
             </select>
             <input type="text" name="query" placeholder="例）琵琶湖の歴史" value="{{ query }}">
             <button type="submit">検索</button>
@@ -55,7 +55,7 @@
                         <label><input type="radio" name="status" value="reading" {% if book.status.is_reading %}checked{% endif %}>読んでいる</label>
                         <label><input type="radio" name="status" value="read" {% if book.status.is_read %}checked{% endif %}>読んだ</label>
                         <button type="submit" class="update-btn">変更</button>
-                        <button type="button" class="delete-btn" data-isbn="{{ book.isbn }}">削除</button>
+                        <button type="button" class="delete-btn" data-isbn="{{ book.isbn }}">追加取消</button>
                     {% else %}
                         <select name="status">
                             <option value="want">読みたい</option>
@@ -205,7 +205,7 @@
                         <label><input type="radio" name="status" value="reading" ${data.current_status === 'reading' ? 'checked' : ''}>読んでいる</label>
                         <label><input type="radio" name="status" value="read" ${data.current_status === 'read' ? 'checked' : ''}>読んだ</label>
                         <button type="submit" class="update-btn">変更</button>
-                        <button type="button" class="delete-btn" data-isbn="${isbn}">削除</button>
+                        <button type="button" class="delete-btn" data-isbn="${isbn}">追加取消</button>
                     `;
                     attachDeleteEvent(form.querySelector('.delete-btn'));  // 追加後にイベント付与
                 } else if (data.status === 'exists') {

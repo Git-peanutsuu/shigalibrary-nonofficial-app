@@ -36,9 +36,10 @@
     </style>
 </head>
 <body>
-    <h1>バーコード読み取り</h1>
-    <p>バーコードを読み取るか、ISBNを入力してください。</p>
-    <p>バーコードは本の裏の上側にある、上の方のバーコードを読み取ってください</p>
+    <h1><a href="{% url 'home' %}">滋賀県立図書館 非公式アプリ</a></h1>
+    <h2>バーコード読み取る</h2>
+    <p>バーコードを読み取るか、ISBN(本の番号)を入力してください。</p>
+    <p>バーコードは本の裏の上のバーコードを読み取ってください</p>
     <input type="text" id="isbn-input" placeholder="ISBNを入力 (例: 9784315523539)">
     <button onclick="submitManualIsbn()">手動で送信</button>
     <br>

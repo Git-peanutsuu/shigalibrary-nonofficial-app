@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="{% static 'css/external_link_window.css' %}">
 </head>
 <body>
-    <h1 href="{% url 'home' %}">滋賀県立図書館 お役立ち非公式アプリ</h1>
+    <h1><a href="{% url 'home' %}">滋賀県立図書館 非公式アプリ</a></h1>
     <h2>スキャン結果</h2>
     <div>
         {% if error_message %}
@@ -55,7 +55,7 @@
                     <label><input type="radio" name="status" value="reading" {% if book.status.is_reading %}checked{% endif %}>読んでいる</label>
                     <label><input type="radio" name="status" value="read" {% if book.status.is_read %}checked{% endif %}>読んだ</label>
                     <button type="submit" class="update-btn">変更</button>
-                    <button type="button" class="delete-btn" data-isbn="{{ book.isbn }}">削除</button>
+                    <button type="button" class="delete-btn" data-isbn="{{ book.isbn }}">追加取消</button>
                 {% else %}
                     <select name="status">
                         <option value="want">読みたい</option>
