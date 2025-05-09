@@ -1,0 +1,22 @@
+<div class="modal" id="barcodeModal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeBarcodeModal()">×</span>
+        <h3>バーコード読み取り</h3>
+        <p>バーコードを読み取るか、ISBN(本の番号)を入力してください。</p>
+        <p>バーコードは本の裏の上のバーコードを読み取ってください</p>
+        <form id="manual-isbn-form">
+            <input type="text" id="isbn-input" placeholder="ISBNを入力 (例: 9784315523539)">
+            <button type="button" onclick="submitManualIsbn()">手動で送信</button>
+        </form>
+        <br>
+        <button onclick="readBarcode()">バーコード読み取り</button>
+        <div id="barcode-scanner"></div>
+        <div id="isbn-popup">
+            <h4>ISBN確認</h4>
+            <p>読み取ったISBN: <span id="scanned-isbn"></span></p>
+            <input type="text" id="isbn-edit" placeholder="修正する場合は入力">
+            <button onclick="confirmIsbn()">OK</button>
+            <button onclick="closePopup()">キャンセル</button>
+        </div>
+    </div>
+</div>

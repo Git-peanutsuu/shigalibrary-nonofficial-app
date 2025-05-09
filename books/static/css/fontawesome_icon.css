@@ -1,0 +1,38 @@
+/* Font Awesome 6用に調整 */
+a[target="_blank"] {
+  display: flex;
+  /* align-items: center; */
+  text-decoration: none;
+  color: #0066cc;
+  font-weight: 500;
+  font-size: 80%;
+  text-decoration: underline;
+}
+
+/* FontAwesomeアイコンのスタイル */
+a[target="_blank"] .fa-external-link-alt {
+  margin-bottom:0.3em;
+  display: inline;
+  font-size: 80%;
+  transition: opacity 0.2s;
+}
+
+/* ホバー時のアニメーション */
+a[target="_blank"]:hover .fa-external-link-alt {
+  opacity: 0.8;
+}
+
+.author .fa-user {
+  font-size: 85%;
+  margin-right: 1.2px; /* アイコンとテキストの間隔 */
+  color: #565656; /* アイコンの色 */
+}
+
+.barcode-link i.fa-barcode {
+  color: rgb(0, 0, 0);
+  font-size: 1.5rem;
+}
+button[type='submit'] i.fa-magnifying-glass  {
+  color: rgb(53, 53, 53);
+  font-size: 1.5rem;
+}

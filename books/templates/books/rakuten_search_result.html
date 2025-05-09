@@ -5,7 +5,15 @@
 <head>
     <title>検索結果 (Rakuten)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/external_link_window.css' %}">
+    <link rel="stylesheet" href="{% static 'css/fontawesome_icon.css' %}">
+    <!-- FontAwesome読み込み -->
+    <!-- Google Fonts (Noto Sans JP) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700&display=swap" rel="stylesheet">
+    <!-- カスタムCSS -->
+    <link rel="stylesheet" href="{% static '/css/fontawesome_icon.css' %}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
     <h1><a href="{% url 'home' %}">滋賀県立図書館 非公式アプリ</a></h1>
@@ -26,7 +34,7 @@
         <ul>
         {% for book in books %}
             <li data-isbn="{{ book.isbn }}">
-                {{ book.title }} - {{ book.author }} (ISBN: {{ book.isbn }}) 
+                {{ book.title }} - {{ book.author }} 
 
                 {% if book.is_added %}
                 <span class="status-text" style="color: green;">
@@ -43,7 +51,7 @@
                 {% else %}
                     <img src="{% static '/images/no_image.png' %}" alt="画像なし" style="max-width: 100px;">
                 {% endif %}
-
+                (ISBN: {{ book.isbn }}) 
                 {% if request.user.is_authenticated %}
                 <form class="book-form" method="post" {% if book.is_added %}action="{% url 'update_book_status' book.isbn %}"{% else %}action="{% url 'add_book' %}"{% endif %}>
                     {% csrf_token %}

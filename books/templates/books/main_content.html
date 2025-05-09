@@ -1,0 +1,85 @@
+{% load static %}
+<p>ようこそ、現在ログイン中です</p>
+<!-- 本リスト -->
+<h2>あなたの本のリスト</h2>
+        <!-- フィルターエリア -->
+        <section class="filter-area">
+            <form method="get" action="{% url 'home' %}">
+                <select name="status" onchange="this.form.submit()">
+                    <option value="all" {% if current_status == 'all' %}selected{% endif %}>すべてのステータス</option>
+                    <option value="want" {% if current_status == 'want' %}selected{% endif %}>読みたい</option>
+                    <option value="reading" {% if current_status == 'reading' %}selected{% endif %}>読んでいる</option>
+                    <option value="read" {% if current_status == 'read' %}selected{% endif %}>読んだ</option>
+                </select>
+                <input type="hidden" name="page" value="{{ page_obj.number }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+            </form>
+            <form method="get" action="{% url 'home' %}">
+                <select name="sort" onchange="this.form.submit()">
+                    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>新しい順</option>
+                    <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>古い順</option>
+                </select>
+                <input type="hidden" name="page" value="{{ page_obj.number }}">
+                <input type="hidden" name="status" value="{{ current_status }}">
+            </form>
+        </section>
+{% if page_obj %}
+<ul class="book-list">
+    {% for book in page_obj %}
+    <li class="book-card" data-isbn="{{ book.isbn_id }}" data-title="{{ book.title }}" data-author="{{ book.author }}">
+        <span class="title">{{ book.title }}</span>
+        <span class="author"><i class="fa-regular fa-user"></i>{{ book.author }}</span>
+        {% if book.image_link %}
+            <img src="{{ book.image_link }}" alt="{{ book.title }}の画像">
+        {% else %}
+            <img src="{% static '/images/no_image.png' %}" alt="画像なし">
+        {% endif %}
+        <span class="isbn">(ISBN: {{ book.isbn_id }})</span>
+        <span class="status-text">
+            {% if book.is_read %}✓読んだ
+            {% elif book.is_reading %}✓読んでいる
+            {% elif book.is_want_to_read %}✓読みたい
+            {% else %}未設定{% endif %}
+        </span>
+        <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+            <span>滋賀県立図書館の蔵書を確認</span>
+            <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+        </a>
+        <form class="book-form" method="post" action="{% url 'update_book_status' book.isbn_id %}">
+            {% csrf_token %}
+            <div class="form-check">
+                <label><input type="radio" name="status" value="want" {% if book.is_want_to_read %}checked{% endif %}>読みたい</label>
+                <label><input type="radio" name="status" value="reading" {% if book.is_reading %}checked{% endif %}>読んでいる</label>
+                <label><input type="radio" name="status" value="read" {% if book.is_read %}checked{% endif %}>読んだ</label>
+            </div>
+            <button type="submit" class="update-btn">変更</button>
+            <button type="button" class="delete-btn" data-isbn="{{ book.isbn_id }}">削除</button>
+        </form>
+        <div class="error-message" style="color: red; display: none;"></div>
+    </li>
+    {% empty %}
+    <li>本がありません。検索して追加してください。</li>
+    {% endfor %}
+</ul>
+
+<!-- ページネーション -->
+<div class="pagination">
+    <p>ページ {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}（全{{ page_obj.paginator.count }}件）</p>
+    {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&status={{ current_status }}&sort={{ sort }}">前のページ</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+            <span>{{ num }}</span>
+        {% else %}
+            <a href="?page={{ num }}&status={{ current_status }}&sort={{ sort }}">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&status={{ current_status }}&sort={{ sort }}">次のページ</a>
+    {% endif %}
+</div>
+{% else %}
+<p>本がありません。検索して追加してください。</p>
+{% endif %}
+</main>

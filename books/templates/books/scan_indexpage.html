@@ -3,6 +3,16 @@
 <head>
     <title>バーコード読み取り</title>
     <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/external_link_window.css' %}">
+    <!-- FontAwesome読み込み -->
+    <!-- Google Fonts (Noto Sans JP) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700&display=swap" rel="stylesheet">
+    <!-- カスタムCSS -->
+    <link rel="stylesheet" href="{% static './css/external_link_window.css' %}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         #isbn-popup {
             display: none;
