@@ -1,7 +1,8 @@
 # books/models.py
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-
+# 現在のis_want_to_read, is_reading, is_readはフラグ形式（複数同時true可能）で、ステータスの単一管理が難しい。
+# statusをCharField（例: choices=[('want', '読みたい'), ('reading', '読んでいる'), ('read', '読んだ')]）にすれば、1つの値で状態を明確に管理,シンプル
 class User(AbstractUser):
     line_id = models.CharField(max_length=100, unique=True)
     username = models.CharField(max_length=150, unique=True, blank=True, null=True)

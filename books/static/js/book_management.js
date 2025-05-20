@@ -63,7 +63,7 @@ function attachDeleteEvent(btn) {
             } else {
                 const errorMessage = li.querySelector('.error-message');
                 errorMessage.style.display = 'block';
-                errorMessage.textContent = '削除に失敗しました。もう一度お試しください。';
+                errorMessage.textContent = '既に本は削除されています。一度読み込んでください';
             }
         })
         .catch(error => {

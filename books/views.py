@@ -198,12 +198,15 @@ def home(request):
                 books = books.filter(is_read=True)
 
             # 並び順（新しい順/古い順）
-            sort = request.GET.get('sort', 'oldest')  # デフォルトは古い順
-            if sort == 'oldest':
-                books = books.order_by('id')  # 古い順（id昇順）
-            else:
+            sort = request.GET.get('sort', 'newest')  # デフォルトは古い順
+            if sort == 'newest':
                 books = books.order_by('-id')  # 新しい順（id降順）
+            else:
+                books = books.order_by('id')  # 古い順（id昇順）
 
+            # セッションに並び替え状態を保存
+            request.session['sort_params'] = {'status': status, 'sort': sort}
+            
             book_list = []
             for book in books:
                 image_link = get_book_image(book.isbn_id)
@@ -243,10 +246,11 @@ def home(request):
                 "error": "予期しないエラーが発生しました。ページを再読み込みしてください。問題が続く場合は、管理者（example@support.com）までご連絡ください。"
             })
 
-@login_required(login_url='line_login')
+@login_required(login_url='login')
 def add_book(request):
     if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': '404-Sorry!-Page-Not-Found'})
+        sort_params = request.session.get('sort_params', {'status': 'want', 'sort': 'newest'})
+        return redirect(f'/home?status={sort_params["status"]}&sort={sort_params["sort"]}')
     # EXPLAIN: POSTメソッドでフォームから送信されるが、JSがpreventDefault（）で横取り
     # fetch() が /add/（= Djangoの add_book()）へPOSTリクエスト送信 title, author, isbn_id, status
     # add_book()でデータベースにisbn_idの有無を確認 json reuturnで -> JSの.then(response => response.json()) で受け取る
@@ -572,8 +576,7 @@ def search_book_by_isbn(request):
     if request.method == 'POST':
         isbn = request.POST.get('isbn')
         if not isbn or not isbn.isdigit() or len(isbn) != 13:
-            context = {"error_message": "バーコードが正しく読み取れませんでした。もう一度お試しください。"}
-            return render(request, "books/scan_result.html", context)
+            return JsonResponse({"status": "error", "message": "バーコードが正しく読み取れませんでした。"}, status=400)
 
         # 楽天APIで検索
         url = "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
@@ -588,15 +591,13 @@ def search_book_by_isbn(request):
             data = response.json()
         except RequestException as e:
             logger.error(f'楽天APIエラー: {str(e)}')
-            context = {"error_message": f"楽天APIへの接続に失敗しました: {str(e)}。ネットワークを確認してください。"}
-            return render(request, "books/scan_result.html", context)
+            return JsonResponse({"status": "error", "message": f"楽天APIへの接続に失敗しました: {str(e)}。"}, status=500)
 
         if not data.get("Items"):
-            context = {"error_message": "このISBNの本は見つかりませんでした。別の本を試してください。"}
-            return render(request, "books/scan_result.html", context)
+            return JsonResponse({"status": "error", "message": "このISBNの本は見つかりませんでした。"}, status=404)
 
         book = data["Items"][0]["Item"]
-        logger.info(f'楽天APIデータ取得：{book}')
+        logger.info('楽天APIデータ取得')
 
         # カーリルAPIで蔵書チェック
         calil_url = "http://api.calil.jp/check"
@@ -605,43 +606,44 @@ def search_book_by_isbn(request):
             "isbn": isbn,
             "systemid": "Shiga_Pref",
             "format": "json",
-            "callback": ""  # JSONP形式を無効化
+            "callback": ""
         }
         try:
             logger.info(f'カーリルAPIリクエスト: {calil_params}')
             calil_response = requests.get(calil_url, params=calil_params, timeout=5)
             calil_response.raise_for_status()
-            logger.info(f'カーリルAPIレスポンス: {calil_response.text}')
             if not calil_response.text.strip():
                 raise ValueError("カーリルAPIから空のレスポンスが返されました")
-
-            # JSONP形式のレスポンスを処理
+            calil_data = json.loads(calil_response.text[1:-2])
             logger.info(json.loads(calil_response.text[1:-2]).get('books', {}))
-            # calil_data = calil_response.json()変な文が代入されているため、はがす
-            calil_data = json.loads(calil_response.text[1:-2])#textなのでjsonで辞書に変換, 余計なもの'();'をはがす。
-            # ー＞{"session": "123djdjioj", "continue": 0, "books": {"9784315523539": {"Shiga_Pref": {"status": "Cache", "libkey": {"図書館": "貸出中"}, "reserveurl": "https://www.shiga-pref-library.jp/wo/opc_srh/srh_detail/4779008"}}}}
-            # 後にavailabilityに代入し、bookだけを取得
         except (RequestException, ValueError, json.JSONDecodeError) as e:
             logger.error(f'カーリルAPIエラー: {str(e)}')
             calil_data = {}
             error_message = f"図書館情報の取得に失敗しました: {str(e)}"
 
-        context = {
-            "book": {
-                "title": book.get("title", "N/A"),
-                "author": book.get("author", "N/A"),
-                "isbn": isbn,
-                "image_link": book.get("largeImageUrl", "").replace("http://", "https://"),
-                "availability": calil_data.get("books", {}).get(isbn, {}).get("Shiga_Pref", {}),
-                "calil_link": f"https://calil.jp/book/{isbn}/search?nearby=滋賀県立図書館",
-                "is_added": UserBook.objects.filter(user=request.user, isbn_id=isbn).exists(),
-                "status": UserBook.objects.filter(user=request.user, isbn_id=isbn).first()
-            },
-            "error_message": locals().get("error_message", "")
+        # UserBookからstatusを安全に取得
+        user_book = UserBook.objects.filter(user=request.user, isbn_id=isbn).first()
+        status = None
+        if user_book:
+            if user_book.is_want_to_read:
+                status = 'want'
+            elif user_book.is_reading:
+                status = 'reading'
+            elif user_book.is_read:
+                status = 'read'
+
+        book_data = {
+            "title": book.get("title", "N/A"),
+            "author": book.get("author", "N/A"),
+            "isbn": isbn,
+            "image_link": book.get("largeImageUrl", "").replace("http://", "https://"),
+            "availability": calil_data.get("books", {}).get(isbn, {}).get("Shiga_Pref", {}),
+            "calil_link": f"https://calil.jp/book/{isbn}/search?nearby=滋賀県立図書館",
+            "is_added": UserBook.objects.filter(user=request.user, isbn_id=isbn).exists(),
+            "status": status  # UserBookから抽出したステータス
         }
-        return render(request, "books/scan_result.html", context)
-    return redirect('display_scan_page')
-# @login_required(login_url='/login/')
+        return JsonResponse({"status": "success", "book": book_data, "error_message": locals().get("error_message", "")})
+    return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 # def example_url(request):
 
 

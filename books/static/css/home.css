@@ -108,7 +108,7 @@ header {
     z-index: 1001;
 }
 .modal-content {
-    background: rgb(186, 185, 185);
+    background: rgb(255, 255, 255);
     margin: 10% auto; /* 上下に余裕 */
     padding: 20px;
     width: 80%; /* 80%に調整 */
@@ -121,7 +121,6 @@ header {
     position: relative;
 }
 .close-btn {
-    position: fixed;
     top: 10px;
     right: 10px;
     font-size: 1.5rem;
@@ -146,6 +145,47 @@ header {
 }
 #barcodeModal #barcode-scanner video {
     width: 100%;
+}
+ /* home.css */
+.result-modal {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    position: relative;
+    max-width: 500px;
+    margin: 10% auto;
+}
+
+.result-modal.active {
+    opacity: 1;
+}
+
+.result-text {
+    color: #ff6200; /* オレンジ色 */
+    font-size: 1.2rem;
+    margin: 10px 0;
+}
+
+.buttons {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+}
+
+.status-options {
+    margin: 10px 0;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.status-options label {
+    margin: 0;
+    font-size: 1rem;
 }
 
 /* 木のような茶色 */
