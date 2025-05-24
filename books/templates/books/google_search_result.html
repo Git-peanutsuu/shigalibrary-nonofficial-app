@@ -5,7 +5,6 @@
 <head>
     <title>本の検索</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/fontawesome_icon.css' %}">
     <!-- FontAwesome読み込み -->
     <!-- Google Fonts (Noto Sans JP) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,13 +12,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700&display=swap" rel="stylesheet">
     <!-- カスタムCSS -->
     <link rel="stylesheet" href="{% static '/css/fontawesome_icon.css' %}">
+    <link rel="stylesheet" href="{% static '/css/search_result.css' %}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="{% static 'js/search_result.js' %}" defer></script>
 </head>
 <body>
-    <h1><a href="{% url 'home' %}">滋賀県立図書館 非公式アプリ</a></h1>
-    <h2>キーワードを入れて本を検索</h2>
+    <header class="bg-wood py-2"> 
+        <div class="header-inner">
+            <a href="{% url 'home' %}">
+                <img src="{% static '/images/home_image.png' %}" alt="ホーム" class="home-icon">
+            </a>
+        </div>
+    </header>
     <form method="get" action="{% url 'search' %}">
-        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <div class="search-form">
             <select name="source">
                 <option value="google" {% if source == 'google' or not source %}selected{% endif %}>Googleで検索</option>
                 <option value="rakuten" {% if source == 'rakuten' %}selected{% endif %}>楽天で検索</option>
@@ -30,86 +36,72 @@
     </form>
     
     {% if query %}
-        <h2>"{{ query }}" の検索結果（表示可能な最大{{ total_pages }}ページ中{{ page_num }}ページ目表示）</h2>
-        <ul>
+        <h2>"{{ query }}" の検索結果（{{ books|length }}件/{{ total_items }}件  {{ page_num }}ページ目）</h2>
+        <div class="result-list">
+
         {% for book in books %}
-            <li data-isbn="{{ book.isbn }}">
-                {{ book.title }} - {{ book.author }}
-
-                {% if book.is_added %}
-                <span class="status-text" style="color: green;">
-                    [追加済み: 
-                    {% if book.status.is_read %}読んだ
-                    {% elif book.status.is_reading %}読んでいる
-                    {% elif book.status.is_want_to_read %}読みたい
-                    {% else %}未設定{% endif %}]
-                </span>
-                {% endif %}
-                <br>
-                {% if book.image_link %}
-                <img src="{{ book.image_link }}" alt="{{ book.title }}の画像" style="max-width: 100px;">
-                {% else %}
-                    <img src="{% static '/images/no_image.png' %}" alt="画像なし" style="max-width: 100px;">
-                {% endif %}
-                (ISBN: {{ book.isbn }}) 
-                {% if request.user.is_authenticated %}
-                <form class="book-form" method="post" {% if book.is_added %}action="{% url 'update_book_status' book.isbn %}"{% else %}action="{% url 'add_book' %}"{% endif %}>
-                    {% csrf_token %}
-                    <input type="hidden" name="title" value="{{ book.title }}">
-                    <input type="hidden" name="author" value="{{ book.author }}">
-                    <input type="hidden" name="isbn_id" value="{{ book.isbn }}">
-                    {% if book.is_added %}
-                        <label><input type="radio" name="status" value="want" {% if book.status.is_want_to_read %}checked{% endif %}>読みたい</label>
-                        <label><input type="radio" name="status" value="reading" {% if book.status.is_reading %}checked{% endif %}>読んでいる</label>
-                        <label><input type="radio" name="status" value="read" {% if book.status.is_read %}checked{% endif %}>読んだ</label>
-                        <button type="submit" class="update-btn">変更</button>
-                        <button type="button" class="delete-btn" data-isbn="{{ book.isbn }}">追加取消</button>
-                    {% else %}
-                        <select name="status">
-                            <option value="want">読みたい</option>
-                            <option value="reading">読んでいる</option>
-                            <option value="read">読んだ</option>
-                        </select>
-                        <button type="submit" class="add-btn">追加</button>
-                    {% endif %}
-                </form>
-                {% endif %}
-
+            <div class="result-card" data-isbn="{{ book.isbn }}" data-title="{{ book.title }}" data-author="{{ book.author }}">
+                <img src="{% if book.image_link %}{{ book.image_link }}{% else %}{% static '/images/no_image.png' %}{% endif %}" alt="{{ book.title }}の画像">
+                <div class="content">
+                <span class="title">{{ book.title }}</span>
+                <span class="author"><i class="fa-regular fa-user"></i>{{ book.author }}</span>
+                <span class="isbn">(ISBN: {{ book.isbn }})</span>
                 {% if book.availability %}
                     {% if book.availability.libkey %}
                         {% for lib, status in book.availability.libkey.items %}
                             <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                            滋賀県立{{ lib }}: {{ status }}
-                            <i class="fas fa-external-link-alt"></i>
-                         </a>
+                                滋賀県立{{ lib }}: {{ status }}
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
                         {% empty %}
-                        <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                            滋賀県立図書館:蔵書なし
-                            <i class="fas fa-external-link-alt"></i>
-                         </a>
+                            <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                                滋賀県立図書館:蔵書なし
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
                         {% endfor %}
                     {% elif book.availability.status == 'Running' %}
                         <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
                             蔵書情報取得中...もう一度読み込んでください
                             <i class="fas fa-external-link-alt"></i>
-                         </a>
+                        </a>
                     {% else %}
-                    <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                        滋賀県立図書館:蔵書なし
-                        <i class="fas fa-external-link-alt"></i>
-                     </a>                    
-                     {% endif %}
+                        <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                            滋賀県立図書館:蔵書なし
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    {% endif %}
                 {% else %}
-                <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
-                    蔵書情報取得中...もう一度読み込んでください
-                    <i class="fas fa-external-link-alt"></i>
-                 </a>
-                {% endif %}            
-            </li>
+                    <a href="{{ book.calil_link }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                        蔵書情報取得中...もう一度読み込んでください
+                        <i class="fas fa-external-link-alt"></i>
+                    </a>
+                {% endif %}
+                {% if request.user.is_authenticated %}
+                    <div class="buttons" data-added="{% if book.is_added %}true{% else %}false{% endif %}">
+                        {% if book.is_added %}
+                            <button class="update-btn" 
+                                onclick="changeStatusModal('{{ book.isbn }}', this.dataset.status)"
+                                data-status="{% if book.status.is_read %}read{% elif book.status.is_reading %}reading{% elif book.status.is_want_to_read %}want{% else %}want{% endif %}"
+                            >変更</button>
+                            <button class="delete-btn" onclick="deleteBook('{{ book.isbn }}')">削除</button>
+                            <span class="status-text">
+                                [
+                                {% if book.status.is_read %}読んだ
+                                {% elif book.status.is_reading %}読んでいる
+                                {% elif book.status.is_want_to_read %}読みたい
+                                {% else %}未設定{% endif %}に追加✓]
+                            </span>
+                        {% else %}
+                            <button class="add-btn" onclick="openStatusModal('{{ book.isbn }}')">追加</button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
         {% empty %}
-            <li>違うページを選択してください</li>
+            <p>違うページを選択してください</p>
         {% endfor %}
-        </ul>
+        </div>
 
         <!-- 取得できなかった件数を表示 -->
         {% if not_displayed_count > 0 %}
@@ -119,111 +111,44 @@
         <!-- ページネーションUI -->
         <div class="pagination">
             <p>ページ {{ page_num }} / {{ total_pages }}（表示可能な最大{{ total_items }}件中 {{ books|length }}件表示）</p>
-            
             {% if has_previous %}
-                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:-1 }}">前のページ</a>
+                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:-1 }}&source={{ source }}">前のページ</a>
             {% endif %}
-            
             {% for num in page_range %}
                 {% if num == page_num %}
                     <span>[{{ num }}]</span>
                 {% else %}
-                    <a href="{% url 'search' %}?query={{ query }}&page={{ num }}">{{ num }}</a>
+                    <a href="{% url 'search' %}?query={{ query }}&page={{ num }}&source={{ source }}">{{ num }}</a>
                 {% endif %}
             {% endfor %}
-
             {% if has_next %}
-                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:1 }}">次のページ</a>
+                <a href="{% url 'search' %}?query={{ query }}&page={{ page_num|add:1 }}&source={{ source }}">次のページ</a>
             {% endif %}
-<!-- 
-            <form method="get" action="{% url 'search' %}" style="display: inline;">
-                <input type="hidden" name="query" value="{{ query }}">
-                <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="ページ番号">
-                <button type="submit">移動</button>
-            </form> -->
+            <p style="font-size:70%;">※表示できる本に限りがあるためページ数と件数は正確ではありません。</p>
         </div>
-    {%else%}
+    {% else %}
         <p>{{ error_message }}</p>
     {% endif %}
-    <a href="{% url 'home' %}">ホームに戻る</a>
+    <footer>
+        <div>
+            <p>
+                © 2025 滋賀県立図書館 お役立ち非公式アプリ
+            </p>
+        </div>
+    </footer>
 
-    <script>
-        function updateSearchStatus(li, status, isAdded) {
-            const statusText = li.querySelector('.status-text') || li.insertBefore(document.createElement('span'), li.querySelector('form'));
-            statusText.className = 'status-text';
-            statusText.style.color = 'green';
-            statusText.textContent = isAdded ? `[追加済み: ${status === 'want' ? '読みたい' : status === 'reading' ? '読んでいる' : '読んだ'}]` : '';
-        }
-        
-        function attachDeleteEvent(btn) {
-            btn.addEventListener('click', function() {
-                const isbn = this.dataset.isbn;
-                const li = btn.closest('li');
-                fetch(`/delete/${isbn}/`, {
-                    method: 'POST',
-                    headers: {'X-CSRFToken': '{{ csrf_token }}'}
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'deleted') {
-                        const form = li.querySelector('form');
-                        form.action = `/add/`;
-                        form.innerHTML = `
-                            {% csrf_token %}
-                            <input type="hidden" name="title" value="${form.querySelector('input[name=title]').value}">
-                            <input type="hidden" name="author" value="${form.querySelector('input[name=author]').value}">
-                            <input type="hidden" name="isbn_id" value="${isbn}">
-                            <select name="status">
-                                <option value="want">読みたい</option>
-                                <option value="reading">読んでいる</option>
-                                <option value="read">読んだ</option>
-                            </select>
-                            <button type="submit" class="add-btn">追加</button>
-                        `;
-                        updateSearchStatus(li, '', false);
-                        btn.remove();
-                    }
-                })
-                .catch(error => console.error('削除エラー:', error));
-            });
-        }
-        
-        document.querySelectorAll('.book-form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const li = this.closest('li');
-                const isbn = li.dataset.isbn;
-                fetch(this.action, {
-                    method: 'POST',
-                    body: new FormData(this),
-                    headers: {'X-CSRFToken': '{{ csrf_token }}'}
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'added' || data.status === 'updated') {
-                        updateSearchStatus(li, data.current_status, true);
-                        form.action = `/update/${isbn}/`;
-                        form.innerHTML = `
-                            {% csrf_token %}
-                            <input type="hidden" name="title" value="${form.querySelector('input[name=title]').value}">
-                            <input type="hidden" name="author" value="${form.querySelector('input[name=author]').value}">
-                            <input type="hidden" name="isbn_id" value="${isbn}">
-                            <label><input type="radio" name="status" value="want" ${data.current_status === 'want' ? 'checked' : ''}>読みたい</label>
-                            <label><input type="radio" name="status" value="reading" ${data.current_status === 'reading' ? 'checked' : ''}>読んでいる</label>
-                            <label><input type="radio" name="status" value="read" ${data.current_status === 'read' ? 'checked' : ''}>読んだ</label>
-                            <button type="submit" class="update-btn">変更</button>
-                            <button type="button" class="delete-btn" data-isbn="${isbn}">追加取消</button>
-                        `;
-                        attachDeleteEvent(form.querySelector('.delete-btn'));  // 追加後にイベント付与
-                    } else if (data.status === 'exists') {
-                        alert('既に追加済みです');
-                    }
-                })
-                .catch(error => console.error('エラー:', error));
-            });
-        });
-        
-        document.querySelectorAll('.delete-btn').forEach(attachDeleteEvent);
-        </script>
+    <!-- モーダル -->
+    <div id="status-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeStatusModal()">×</span>
+            <h3>ステータスを選択</h3>
+            <div class="status-options">
+                <label><input type="radio" name="status" value="want">読みたい</label>
+                <label><input type="radio" name="status" value="reading">読んでいる</label>
+                <label><input type="radio" name="status" value="read">読んだ</label>
+            </div>
+            <button onclick="submitStatus()">確定</button>
+        </div>
+    </div>
 </body>
 </html>

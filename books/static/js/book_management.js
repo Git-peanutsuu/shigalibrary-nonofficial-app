@@ -1,4 +1,14 @@
 let deletedBooks = {};
+let isDataChangedInModal = false;
+window.addEventListener('dataChangedfromModalContent', () => { isDataChangedInModal = true; showReloadInfoIcon(); });
+function showReloadInfoIcon() {
+    console.log('showReloadInfoIcon');
+    const reloadIcon = document.getElementById('reload-icon');
+    if (reloadIcon && reloadIcon.style.display === 'none') {
+        reloadIcon.style.display = 'block'; 
+        reloadIcon.onclick = () => window.location.reload(); 
+    }
+}
 function updateStatusText(li, status) {
     const statusText = li.querySelector('.status-text') || li.appendChild(document.createElement('span'));
     statusText.className = 'status-text';

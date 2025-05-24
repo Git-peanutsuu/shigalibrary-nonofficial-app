@@ -6,7 +6,6 @@
     <title>Books</title>
     <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/fontawesome_icon.css' %}">
     <!-- FontAwesome読み込み -->
     <!-- Google Fonts (Noto Sans JP) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,45 +18,49 @@
 </head>
 <body>
     <!-- ヘッダー -->
-    <header class="bg-wood py-2">
-        <div>
-                <a href="{% url 'home' %}">
-                    <img src="{% static '/images/home_image.png' %}" alt="ホーム" class="home-icon">
-                </a>
-            <section class="search-area">
-                <form method="get" action="{% url 'search' %}" onsubmit="return handleSearch(event)">
-                    <select name="source">
-                        <option value="google" {% if source == 'google' or not source %}selected{% endif %}>Google</option>
-                        <option value="rakuten" {% if source == 'rakuten' %}selected{% endif %}>楽天</option>
-                    </select>
-                    <div class="search-input-wrapper">
-                        <i class="fas fa-magnifying-glass search-icon"></i>
-                        <input type="text" name="query" placeholder="検索 またはバーコードで本を追加" value="{{ query }}" oninput="toggleBarcodeButton(this)">
-                        <button type="button" class="barcode-btn" onclick="openBarcodeModal()">
-                            <i class="fas fa-barcode"></i>
-                        </button>
-                    </div>
-                </form>
-            </section>
-        </div>
-    </header>
+<header class="bg-wood py-2"> 
+    <div class="header-inner">
+        <a href="{% url 'home' %}">
+            <img src="{% static '/images/home_image.png' %}" alt="ホーム" class="home-icon">
+        </a>
+        <section class="search-area">
+            <form method="get" action="{% url 'search' %}" onsubmit="return handleSearch(event)">
+                <select name="source">
+                    <option value="google" {% if source == 'google' or not source %}selected{% endif %}>Google</option>
+                    <option value="rakuten" {% if source == 'rakuten' %}selected{% endif %}>楽天</option>
+                </select>
+                <div class="search-input-wrapper">
+                    <i class="fas fa-magnifying-glass search-icon"></i>
+                    <input type="text" name="query" placeholder="検索 またはバーコードで本を追加" value="{{ query }}" oninput="toggleBarcodeButton(this)">
+                    <button type="button" class="barcode-btn" onclick="openBarcodeModal()">
+                        <i class="fas fa-barcode"></i>
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+</header>
+
+
     <!-- モーダル -->
     {% include 'books/scan_modal.html' %}
 
     <!-- メインコンテンツ -->
-    <main style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+    <div id="reload-icon" class="reload-icon" style="display: none;"><i class="fas fa-sync-alt"></i></div>
+    <main style="max-width: 1200px; margin: 0 auto; padding: 13px;">
+        
         {% include 'books/main_content.html' %}
     </main>
     <!-- 関連リンク -->
     <section class="bg-light-yellow py-4">
-        <div style="max-width: 1200px; margin: 0 auto; padding: 5 15px;">
-            <h2 style="font-size: 1.25rem; margin-bottom: 1rem; text-align: center;">関連リンク</h2>
+        <div style="width: 100%;  padding: 1%;">
+            <h2 style="font-size: 1rem; text-align: center; justify-content: space-around;">関連リンク</h2>
             <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-                <a href="https://calil.jp/" target="_blank" rel="noopener noreferrer" class="external-link" style=" padding: 8px 15px; border: 1px solid #007bff; border-radius: 4px; color: #007bff; text-decoration: none; display: flex; align-items: center; gap: 5px; width: 200px; justify-content: space-between;">
+                <a href="https://calil.jp/" target="_blank" rel="noopener noreferrer" class="external-link" style=" padding: 8px 15px; border: 1px solid #007bff; border-radius: 4px; color: #007bff; text-decoration: none; display: flex; align-items: center; width: 125px; justify-content: space-between;   cursor: pointer; ">
                     カーリル
                     <i class="fas fa-chevron-right"></i>
                 </a>
-                <a href="https://www.shiga-pref-library.jp/" target="_blank" rel="noopener noreferrer" class="external-link" style="padding: 8px 15px; border: 1px solid #007bff; border-radius: 4px; color: #007bff; text-decoration: none; display: flex; align-items: center; gap: 5px; width: 200px; justify-content: space-between;">
+                <a href="https://www.shiga-pref-library.jp/" target="_blank" rel="noopener noreferrer" class="external-link" style="padding: 8px 15px; border: 1px solid #007bff; border-radius: 4px; color: #007bff; text-decoration: none; display: flex; align-items: center; width: 125px; justify-content: space-between;   cursor: pointer; ">
                     滋賀県立図書館
                     <i class="fas fa-chevron-right"></i>
                 </a>
@@ -66,9 +69,9 @@
     </section>
 
     <!-- フッター -->
-    <footer class="bg-wood py-4">
-        <div style="max-width: 1200px; margin: 0 auto; padding: 0 15px;">
-            <p class="text-center mb-0">
+    <footer>
+        <div style="max-width: 100%">
+            <p>
                 © 2025 滋賀県立図書館 お役立ち非公式アプリ
             </p>
         </div>

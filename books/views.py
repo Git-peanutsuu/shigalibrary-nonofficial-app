@@ -565,7 +565,7 @@ def extract_isbn(request):
         barcode_data = request.POST.get('barcode')
         # 仮のバーコード処理（実際はJavaScriptでバーコードを読み取る）
         # ここではbarcode_dataがISBNそのものと仮定
-        isbn = barcode_data
+        isbn = barcode_data.replace("-", "") if barcode_data else ""
         if not isbn or not isbn.isdigit() or len(isbn) != 13:
             return JsonResponse({"status": "error", "message": "バーコードが正しく読み取れませんでした。もう一度お試しください。"}, status=400)
         return JsonResponse({"status": "success", "isbn": isbn})

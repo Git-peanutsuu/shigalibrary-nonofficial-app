@@ -3,67 +3,94 @@ body {
     font-family: "Zen Maru Gothic", serif;
     font-weight: 700;
     font-style: normal;
-    font-size:100%;
+    font-size:100%; 
+    min-width: 350px;
 }
-header, footer, main, .search-area > div {
+h2,p{
+    white-space: nowrap;
+    margin: 2%;
+}
+.bg-wood{
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: none;
+    min-width: 100%;
+    margin: 0;
+    padding: 0.5%;
+    background-color: #dfcbc1;
     box-sizing: border-box;
 }
-@media (max-width: 767px) {
-    header, footer, main, .search-area > div {
-        max-width: 1200px;
-        padding: 0 5px;
-    }
-}
-
-header {
+header{
     display: flex;
+    width: 100%;
     justify-content: space-between;
     align-items: center;
-    position: sticky;
     top: 0;
     left: 0;
     right: 0;
     z-index: 0;
     opacity: 100%;
 }
+footer{
+    width: 100%;
+    background-color: #dfcbc1;
+    padding: 0.5%;
+}
+footer p{
+    font-size: 70%;
+    text-align: center;
+}
+.header-inner {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    width: 100%;
+    margin: 0; 
+    box-sizing: border-box;
+    padding: 0px;
+}
 .home-icon {
     width: 120px;
     height: 50px;
-    display: flex;
+    display: block;
     align-items: center;
     background-color: transparent; /* none → transparent */
 }
 
-@media (max-width: 768px) {
-    .home-icon {
-        width: 90px;
-        height: 40px;
-    }
-}
 .search-area {
-    padding: 10px;
-    margin-bottom: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    padding:5px 10px;
+    margin: 0;
     background:none;
     width: 100%;
 }
+.search-area form {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
 .search-area select {
-    display:inline-flex;
-    border: gray;
+    display: flex;
+    justify-content: center;
+    border: 1px rgb(0, 0, 0);
     background: #999;
     font-size: 1rem;
-    padding: 5px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    min-width: 60px;
+    height: 30px;
 }
+
 .search-input-wrapper {
-    display: inline-flex;
+    width: 100%;
+    display: flex;
     position: relative;
     flex: 1 1 auto;
-    width: 100%;
+    width: auto; 
+    height: 30px;
+    max-width: 380px;
 }
 .search-input-wrapper .search-icon {
     position: absolute;
@@ -72,15 +99,16 @@ header {
     transform: translateY(-50%);
 }
 .search-input-wrapper input {
-    
-    width: 400%;
-    padding: 10px 40px 10px 40px; /* 左にアイコン分余裕 */
-    border: none;
+    padding: 0px 35px; /* 左にアイコン分余裕 */
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid #ccc;
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 0.7rem;
+    font-size: 1rem;
     background: white;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    box-sizing: border-box;
 }
 .barcode-btn {
     position: absolute;
@@ -96,7 +124,46 @@ header {
 .barcode-btn.hidden {
     display: none; /* ここで.hiddenを定義 */
 }
+@media (max-width: 420px) {
+    header {
+        height: auto;
+    }
+    .search-area {
+        height: auto;
+    }
+    .home-icon {
+        width: 80px;
+        height: 35px;
+    }
+    
+    .search-area form {
+        width: 95%;
 
+    }
+    
+    .search-input-wrapper {
+        max-width: 90%;
+        height: 30px;
+    }
+    
+    .search-area select {
+        font-size: 0.9rem;
+        min-width: 35px;
+        left: 10px;
+        top: 50%;
+    }
+    
+    .search-input-wrapper input {
+        padding: 0px 35px; /* 左にアイコン分余裕 */
+        font-size: 0.9rem;
+    }
+    .barcode-btn{
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        font-size: 0.9rem;
+    }
+}
 .modal {
     display: none;
     position: fixed;
@@ -109,11 +176,11 @@ header {
 }
 .modal-content {
     background: rgb(255, 255, 255);
-    margin: 10% auto; /* 上下に余裕 */
-    padding: 20px;
+    margin: 5% auto; /* 上下に余裕 */
+    padding-top: 0;
+    padding: 10px;
     width: 80%; /* 80%に調整 */
-    max-width: 600px; /* 最大幅を設定 */
-    height: 80%; /* 高さも80% */
+    height: 88%; /* 高さも80% */
     border-radius: 8px;
     text-align: center;
     overflow-y: auto; /* スクロール維持 */
@@ -121,12 +188,15 @@ header {
     position: relative;
 }
 .close-btn {
+    position: absolute;
     top: 10px;
     right: 10px;
     font-size: 1.5rem;
     cursor: pointer;
     color: #333;
+    padding: 0;
     z-index: 1002;
+    line-height: 1;
 }
 
 /**/
@@ -151,54 +221,90 @@ header {
     background: white;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.1);
     text-align: center;
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
     position: relative;
-    max-width: 500px;
+    width: 90%;
+    height: 95%;
     margin: 10% auto;
 }
-
 .result-modal.active {
     opacity: 1;
 }
 
 .result-text {
     color: #ff6200; /* オレンジ色 */
-    font-size: 1.2rem;
+    font-size: 1rem;
     margin: 10px 0;
 }
-
+@media (max-width: 420px) {
+    .modal {
+        font-size: 80%;
+        width: 95%; /* スマホで90% */
+        height: 95%; /* スマホで90% */
+    }
+    .modal-content {
+        width: 95%; /* スマホで90% */
+        height: 95%; /* スマホで90% */
+    }
+    .result-modal  {
+        width: 99%;
+        height: 99%;
+        font-size: 100%;
+        margin: 0%;
+        padding: 0%;
+    }
+    .result-text  {
+        font-size: 100%;
+    }
+    .buttons {
+        font-size: 80%;
+        margin-bottom: 3%;
+    }
+    .status-options {
+        font-size: 80%;
+    }
+    .status-options label{
+        font-size: 80%;
+    }
+}
 .buttons {
     display: flex;
     justify-content: space-around;
     margin-top: 20px;
+    font-size: 95%;
 }
+#result-calil-link {
+    justify-content: center;
 
+}
 .status-options {
-    margin: 10px 0;
+    margin: 5px 0;
     display: flex;
     justify-content: center;
     gap: 15px;
+    font-size: 95%;
 }
 
 .status-options label {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.8rem;
 }
 
-/* 木のような茶色 */
-.bg-wood {
-    background-color: #dfcbc1;
-}
-.bg-wood h1, .bg-wood p {
-    color: white;
-}
 /* 薄い黄色 */
 .bg-light-yellow {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
     background-color: #FFF9E6;
 }
+
+/* reloadicon -> fontawesome_icon.css */
+
 
 /* フィルターエリア */
 .filter-area {
@@ -234,6 +340,14 @@ header {
 
     }
 }
+@media (max-width: 380px) {
+    .book-list {
+        grid-template-columns: repeat(1, minmax(200px, 1fr)); /* スマホで2列 */
+        padding: 0;
+
+    }
+}
+
 .book-form {
     font-size: 80%;
     display: flex;

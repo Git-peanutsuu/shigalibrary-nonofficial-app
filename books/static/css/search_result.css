@@ -1,0 +1,167 @@
+/* header {} */
+body {
+    flex-shrink: 0;
+    min-width: 350px;
+    font-family: "Zen Maru Gothic", serif;
+    font-weight: 700;
+    font-style: normal;
+    font-size:120%; 
+}
+.bg-wood{
+    width: 100%;
+    max-width: none;
+    min-width: 100%;
+    margin: 0;
+    padding: 0.5%;
+    background-color: #dfcbc1;
+    box-sizing: border-box;
+}
+
+header{
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: start;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    opacity: 100%;
+}
+footer{
+    width: 100%;
+    background-color: #dfcbc1;
+    padding: 0.5%;
+}
+footer p{
+    font-size: 70%;
+    text-align: center;
+}
+.home-icon {
+    width: 120px;
+    height: 50px;
+    display: block;
+    align-items: center;
+    background-color: transparent; /* none → transparent */
+}
+.search-form {
+    display: flex;
+    gap: 0;
+    margin: 10px;
+    
+}
+.result-list {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+}
+.result-card {
+    display: flex;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 8px;
+    background: #fff;
+    align-items: flex-start;
+    min-width: 350px;
+}
+.result-card img {
+    max-width: 100px;
+    height: auto;
+    /* padding:10% 3%; */
+    margin: 1%;
+    flex-shrink: 0;
+}
+.content {
+    flex: 1;
+    margin-left: 5%;
+}
+.title, .author, .isbn, .buttons {
+    display: block;
+    margin: 5px 0;
+}
+.status-text {
+    color: rgb(0, 203, 166);
+}
+.buttons {
+    margin-top: 10px;
+}
+.add-btn, .update-btn, .delete-btn {
+    padding: 8px 15px;
+    margin-right: 5px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.add-btn { background: #28a745; color: white; }
+.update-btn { background: #007bff; color: white; }
+.delete-btn { background: #dc3545; color: white; }
+.pagination {
+    margin: 20px 0;
+    text-align: center;
+}
+.pagination a, .pagination span {
+    margin: 0 5px;
+    text-decoration: none;
+}
+.modal {
+    display: none;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    font-size: 100%;
+    margin: 0 auto;
+}
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 400px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+}
+.status-options {
+    margin: 15px 0;
+}
+.status-options label {
+    display: block;
+    margin: 5px 0;
+}
+.close-btn {
+    position: absolute;
+    top: 6px;
+    right: 15px;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+@media (max-width: 800px){
+    body {
+        font-size: 100%;
+    }
+    .modal-content{
+        max-width: 30%;
+        font-size: 80%;
+    }
+}
+@media (max-width: 500px){
+    body {
+        font-size: 80%;
+    }
+    .modal-content{
+        max-width: 30%;
+        font-size: 80%;
+    }
+    .title, .author, .isbn, .status-text, .external-link {
+        display: block;
+        margin: 5px 0;
+    }
+}

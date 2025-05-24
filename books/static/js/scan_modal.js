@@ -95,7 +95,9 @@ function stopBarcode() {
     }
 }
 function submitManualIsbn() {
-    const isbn = document.getElementById('isbn-input').value;
+    const rawIsbn = document.getElementById('isbn-input').value;
+    const isbn = rawIsbn.replace(/-/g, '');
+
     if (isbn && isbn.match(/^\d{13}$/)) {
         confirmIsbn(isbn); // 直接confirmIsbnを呼び出し
     } else {
@@ -159,8 +161,8 @@ function confirmIsbn(isbn = document.getElementById('isbn-edit').value) {
             }
             console.log('ボタン生成開始:', data.book.is_added);
             if (data.book.is_added) {
-                buttonsDiv.innerHTML = `
-                    <span>[追加済み]</span>
+                    buttonsDiv.innerHTML = `
+                    <span style="color: green;">[追加✓]</span>
                     <button onclick="updateBook()">変更</button>
                     <button onclick="cancelAdd()">追加取消</button>
                     <button onclick="restartScan()">もう一度読み取る</button>
@@ -198,6 +200,7 @@ function updateBook() {
     .then(data => {
         if (data.status === 'updated') {
             alert('ステータスが変更されました');
+            window.dispatchEvent(new CustomEvent('dataChangedfromModalContent'));
         } else {
             alert('変更に失敗しました: ' + (data.message || ''));
         }
@@ -225,12 +228,13 @@ function addBook() {
             currentBookData.is_added = true;
             // ボタンをクライアント側で更新
             const buttonsDiv = document.querySelector('.buttons');
-            buttonsDiv.innerHTML = `
-                <span>[追加済み]</span>
+                buttonsDiv.innerHTML = `
+                <span style="color: green;">[追加✓]</span>
                 <button onclick="updateBook()">変更</button>
                 <button onclick="cancelAdd()">追加取消</button>
                 <button onclick="restartScan()">もう一度読み取る</button>
             `;
+            window.dispatchEvent(new CustomEvent('dataChangedfromModalContent'));
         } else {
             alert('追加に失敗しました');
         }
@@ -255,6 +259,7 @@ function cancelAdd() {
                 <button onclick="addBook()">追加</button>
                 <button onclick="restartScan()">もう一度読み取る</button>
             `;
+            window.dispatchEvent(new CustomEvent('dataChangedfromModalContent'));
         } else {
             alert('削除に失敗しました');
         }
