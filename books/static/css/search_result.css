@@ -18,15 +18,29 @@ body {
 }
 
 header{
-    display: flex;
     width: 100%;
-    justify-content: space-between;
-    align-items: start;
     top: 0;
     left: 0;
     right: 0;
     z-index: 0;
     opacity: 100%;
+}
+.header-inner {
+    display: flex;
+    align-items: center;
+    justify-content:space-between;
+
+}
+.home-icon {
+    width: 120px;
+    height: 50px;
+    background-color: transparent; /* none → transparent */
+}
+.logout-link {
+    font-size:80%;
+    margin-right: 1%;
+    text-decoration: none; /* リンクの下線をなくす */
+    cursor: pointer; /* カーソルを変更 */
 }
 footer{
     width: 100%;
@@ -37,13 +51,7 @@ footer p{
     font-size: 70%;
     text-align: center;
 }
-.home-icon {
-    width: 120px;
-    height: 50px;
-    display: block;
-    align-items: center;
-    background-color: transparent; /* none → transparent */
-}
+
 .search-form {
     display: flex;
     gap: 0;

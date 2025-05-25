@@ -22,6 +22,9 @@
             <a href="{% url 'home' %}">
                 <img src="{% static '/images/home_image.png' %}" alt="ホーム" class="home-icon">
             </a>
+            <a href="{% url 'logout'}" class="logout-link">
+                <i class="fas fa-sign-out-alt"></i> ログアウト
+            </a>
         </div>
     </header>
     <form method="get" action="{% url 'search' %}">

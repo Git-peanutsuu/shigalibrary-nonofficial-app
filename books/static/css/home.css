@@ -22,7 +22,6 @@ h2,p{
 header{
     display: flex;
     width: 100%;
-    justify-content: space-between;
     align-items: center;
     top: 0;
     left: 0;
@@ -40,27 +39,39 @@ footer p{
     text-align: center;
 }
 .header-inner {
-    display: flex;
     align-items: center;
     flex-direction: column;
     width: 100%;
-    margin: 0; 
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
     padding: 0px;
 }
+.header-upper {
+    display: flex;
+    align-items: center;
+    justify-content:space-between;
+}
 .home-icon {
+    align-items: center;
     width: 120px;
     height: 50px;
-    display: block;
-    align-items: center;
     background-color: transparent; /* none → transparent */
 }
-
+.logout-link {
+    align-items: center;
+    color: rgb(42, 42, 38);
+    font-size:70%;
+    margin-right: 1%;
+    margin-bottom: 2%;
+    text-decoration: none; /* リンクの下線をなくす */
+    cursor: pointer; /* カーソルを変更 */
+}
 .search-area {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding:5px 10px;
+    padding:5px 0;
     margin: 0;
     background:none;
     width: 100%;
@@ -90,7 +101,7 @@ footer p{
     flex: 1 1 auto;
     width: auto; 
     height: 30px;
-    max-width: 380px;
+    max-width: 330px;
 }
 .search-input-wrapper .search-icon {
     position: absolute;
@@ -149,7 +160,7 @@ footer p{
     .search-area select {
         font-size: 0.9rem;
         min-width: 35px;
-        left: 10px;
+        left: 5px;
         top: 50%;
     }
     

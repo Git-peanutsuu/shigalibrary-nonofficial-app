@@ -20,9 +20,14 @@
     <!-- ヘッダー -->
 <header class="bg-wood py-2"> 
     <div class="header-inner">
-        <a href="{% url 'home' %}">
-            <img src="{% static '/images/home_image.png' %}" alt="ホーム" class="home-icon">
-        </a>
+        <section class="header-upper">
+            <a href="{% url 'home' %}">
+                <img src="{% static '/images/home_image.png' %}" alt="ホーム" class="home-icon">
+            </a>
+            <a href="{% url 'logout'}" class="logout-link">
+                <i class="fas fa-sign-out-alt"></i> ログアウト
+            </a>
+        </section>
         <section class="search-area">
             <form method="get" action="{% url 'search' %}" onsubmit="return handleSearch(event)">
                 <select name="source">
